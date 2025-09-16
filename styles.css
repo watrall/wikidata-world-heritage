@@ -194,6 +194,21 @@ body {
     padding: 0.25rem 0.5rem;
 }
 
+/* MapTiler specific styles */
+.leaflet-tile-container img {
+    width: 512px !important;
+    height: 512px !important;
+}
+
+/* Ensure proper tile rendering */
+.leaflet-overlay-pane svg,
+.leaflet-marker-pane img,
+.leaflet-shadow-pane img,
+.leaflet-tile-container img {
+    max-width: none !important;
+    max-height: none !important;
+}
+
 /* Essential Leaflet CSS */
 .leaflet-pane,
 .leaflet-tile,
@@ -219,7 +234,7 @@ body {
 .leaflet-marker-icon,
 .leaflet-marker-shadow {
     user-select: none;
-    -webkit-user-drag: none;
+    webkit-user-drag: none;
 }
 
 .leaflet-marker-icon,
@@ -446,4 +461,27 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .leaflet-oldie .leaflet-control-zoom,
 .leaflet-oldie .leaflet-control-layers,
 .leaflet-oldie .leaflet-popup-content-wrapper,
-.leaflet-old
+.leaflet-oldie .leaflet-popup-tip {
+    box-shadow: none;
+}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers {
+    border: 1px solid #999;
+}
+
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+    border: 1px solid #999;
+}
+
+.leaflet-oldie .leaflet-popup-tip {
+    border-top: none;
+}
+
+.leaflet-oldie .leaflet-popup-close-button {
+    background: white;
+    border: 1px solid #999;
+    -ms-border-radius: 50%;
+    border-radius: 50%;
+}

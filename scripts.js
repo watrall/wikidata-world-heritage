@@ -317,14 +317,19 @@ let map;
 let markers = [];
 
 function initMap() {
-    console.log('Initializing map...');
+    console.log('Initializing map with MapTiler Dataviz tiles...');
     
     // Create map
     map = L.map('map').setView([20, 0], 2);
     
-    // Add tile layer with updated attribution
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>'
+    // Add MapTiler Dataviz tile layer with your API key
+    L.tileLayer('https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=hwdzAUpEiLf9NbzhMhnP', {
+        attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
+        tileSize: 512,
+        zoomOffset: -1,
+        minZoom: 1,
+        maxZoom: 18,
+        crossOrigin: true
     }).addTo(map);
     
     // Update map with sites

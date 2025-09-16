@@ -88,7 +88,7 @@ function updateControlsVisibility() {
     }
 }
 
-// Load UNESCO sites from DigitalOcean Function
+// Load UNESCO sites from DigitalOcean Function with improved Wikidata query
 async function loadSites() {
     try {
         console.log('Loading sites from DigitalOcean Function...');
@@ -96,25 +96,113 @@ async function loadSites() {
         // Use your actual DigitalOcean function URL
         const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
         
-        // Correct query using Q2039348 (UNESCO World Heritage Site) with coordinates
+        // Improved SPARQL query for real UNESCO World Heritage Sites data
         const query = `
-SELECT ?item ?itemLabel ?country ?coordinate ?inscriptionYear WHERE {
-  ?item wdt:P31/wdt:P279* wd:Q2039348.
-  ?item wdt:P625 ?coordinate.
-  ?item rdfs:label ?itemLabel.
-  FILTER(LANG(?itemLabel) = "en")
-  OPTIONAL { ?item wdt:P17 ?countryItem. ?countryItem rdfs:label ?country. FILTER(LANG(?country) = "en") }
-  OPTIONAL { ?item wdt:P575 ?inscribed. BIND(YEAR(?inscribed) AS ?inscriptionYear) }
-  FILTER (?inscriptionYear >= 1978)
+SELECT
+  ?siteName
+  ?category
+  ?countryName
+  ?lat ?lon
+  ?description
+  ?unescoURL
+WHERE {
+  # ---------- Collect display fields (one row per site) ----------
+  {
+    SELECT
+      ?site
+      (SAMPLE(?lEn)   AS ?lbl_en)
+      (SAMPLE(?lAny)  AS ?lbl_any)
+      (SAMPLE(?cName) AS ?countryName)
+      (SAMPLE(?dEn)   AS ?description)
+      (SAMPLE(?latVal) AS ?lat)
+      (SAMPLE(?lonVal) AS ?lon)
+      (SAMPLE(?id)     AS ?whsId)
+      (SAMPLE(?url973) AS ?unescoURL_p973)
+    WHERE {
+      # Current WHS (exclude delisted that have an end time on the WHS statement)
+      ?site wdt:P1435 wd:Q9259 .
+      FILTER NOT EXISTS {
+        ?site p:P1435 ?st .
+        ?st ps:P1435 wd:Q9259 ; pq:P582 ?end .
+      }
+
+      # Names (avoid label service)
+      OPTIONAL { ?site rdfs:label ?lEn  FILTER(LANG(?lEn) = "en") }
+      OPTIONAL { ?site rdfs:label ?lAny }
+
+      # Country (plain-text English)
+      OPTIONAL {
+        ?site wdt:P17 ?c .
+        OPTIONAL { ?c rdfs:label ?cName FILTER(LANG(?cName) = "en") }
+      }
+
+      # English description
+      OPTIONAL { ?site schema:description ?dEn FILTER(LANG(?dEn) = "en") }
+
+      # Coordinates → lat/lon
+      OPTIONAL {
+        ?site wdt:P625 ?coordVal .
+        BIND(geof:latitude(?coordVal)  AS ?latVal)
+        BIND(geof:longitude(?coordVal) AS ?lonVal)
+      }
+
+      # UNESCO World Heritage ID (preferred for official URL)
+      OPTIONAL { ?site wdt:P757 ?id }
+
+      # Fallback: some items store the UNESCO list URL directly in P973
+      OPTIONAL {
+        ?site wdt:P973 ?url973 .
+        FILTER(CONTAINS(STR(?url973), "whc.unesco.org/en/list/"))
+      }
+    }
+    GROUP BY ?site
+  }
+
+  # Final site name (English label, else any label)
+  BIND(COALESCE(?lbl_en, ?lbl_any) AS ?siteName)
+
+  # ---------- Category detection via criterion ITEMS (uses numeric P1545 on the criterion items) ----------
+  BIND(
+    IF(
+      EXISTS {
+        ?site wdt:P2614 ?critC .
+        ?critC wdt:P1545 ?nC .
+        FILTER(?nC >= 1 && ?nC <= 6)     # i..vi -> cultural
+      } &&
+      EXISTS {
+        ?site wdt:P2614 ?critN .
+        ?critN wdt:P1545 ?nN .
+        FILTER(?nN >= 7 && ?nN <= 10)    # vii..x -> natural
+      },
+      "mixed",
+      IF(
+        EXISTS {
+          ?site wdt:P2614 ?critN2 .
+          ?critN2 wdt:P1545 ?nN2 .
+          FILTER(?nN2 >= 7 && ?nN2 <= 10)
+        },
+        "natural",
+        "cultural"
+      )
+    ) AS ?category
+  )
+
+  # Official UNESCO URL: prefer P757-based; else P973 fallback; else empty
+  BIND(
+    IF(BOUND(?whsId),
+       CONCAT("https://whc.unesco.org/en/list/", STR(?whsId)),
+       IF(BOUND(?unescoURL_p973), STR(?unescoURL_p973), "")
+    ) AS ?unescoURL
+  )
 }
-ORDER BY ?inscriptionYear
-LIMIT 300
+ORDER BY ?siteName
 `;
         
-        // Encode the query and make the request
-        const fullUrl = `${functionUrl}?query=${encodeURIComponent(query)}`;
+        // Encode the query and make the request through your DigitalOcean function
+        const encodedQuery = encodeURIComponent(query);
+        const fullUrl = `${functionUrl}?query=${encodedQuery}`;
         
-        console.log('Fetching from function:', fullUrl);
+        console.log('Fetching from DigitalOcean function:', fullUrl);
         
         const response = await fetch(fullUrl);
         if (!response.ok) {
@@ -148,35 +236,31 @@ function processSitesData(data) {
     console.log('Number of results:', data.results.bindings.length);
     
     state.sites = data.results.bindings.map(item => {
-        // Parse coordinates from Point format
+        // Parse coordinates
         let latitude = 0;
         let longitude = 0;
         
-        if (item.coordinate?.value) {
-            // Extract from Point(123.456 78.901) format
-            const coordMatch = item.coordinate.value.match(/Point\(([-\d.]+)\s+([-\d.]+)\)/);
-            if (coordMatch) {
-                longitude = parseFloat(coordMatch[1]);
-                latitude = parseFloat(coordMatch[2]);
-            }
+        if (item.lat?.value && item.lon?.value) {
+            latitude = parseFloat(item.lat.value);
+            longitude = parseFloat(item.lon.value);
         }
         
-        // Get inscription year (default to 1978 if not available)
-        let inscriptionYear = 1978;
-        if (item.inscriptionYear?.value) {
-            inscriptionYear = parseInt(item.inscriptionYear.value);
+        // Determine type from category or default to cultural
+        let type = 'cultural';
+        if (item.category?.value) {
+            type = item.category.value.toLowerCase();
         }
         
         return {
-            id: item.item?.value ? item.item.value.split('/').pop() : 'unknown',
-            name: item.itemLabel?.value || 'Unknown Site',
-            country: item.country?.value || 'Unknown',
+            id: item.site?.value ? item.site.value.split('/').pop() : 'unknown',
+            name: item.siteName?.value || 'Unknown Site',
+            country: item.countryName?.value || 'Unknown',
             latitude: latitude,
             longitude: longitude,
-            inscriptionYear: inscriptionYear,
-            type: 'cultural', // Default for now
-            description: 'UNESCO World Heritage Site',
-            officialUrl: ''
+            inscriptionYear: 1978, // Default for now, will update with real data
+            type: type,
+            description: item.description?.value || 'UNESCO World Heritage Site',
+            officialUrl: item.unescoURL?.value || ''
         };
     }).filter(site => 
         site.latitude && 
@@ -354,7 +438,7 @@ function updateMap() {
                 <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     <h3 style="font-weight: bold; color: #000000; margin: 0 0 4px 0;">${site.name}</h3>
                     <p style="color: #000000; margin: 4px 0;"><strong>Country:</strong> ${site.country}</p>
-                    <p style="color: #000000; margin: 4px 0;"><strong>Inscribed:</strong> ${site.inscriptionYear}</p>
+                    <p style="color: #000000; margin: 4px 0;"><strong>Type:</strong> ${site.type.charAt(0).toUpperCase() + site.type.slice(1)}</p>
                     <p style="color: #000000; margin: 8px 0;">${site.description}</p>
                     <a 
                         href="${site.officialUrl}" 

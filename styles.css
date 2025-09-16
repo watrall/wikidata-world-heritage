@@ -234,7 +234,7 @@ body {
 .leaflet-marker-icon,
 .leaflet-marker-shadow {
     user-select: none;
-    webkit-user-drag: none;
+    -webkit-user-drag: none;
 }
 
 .leaflet-marker-icon,
@@ -245,7 +245,6 @@ body {
 .leaflet-control {
     position: relative;
     z-index: 800;
-    pointer-events: visiblePainted;
     pointer-events: auto;
 }
 
@@ -363,7 +362,6 @@ body {
 .leaflet-image-layer.leaflet-interactive,
 .leaflet-pane > svg path.leaflet-interactive,
 svg.leaflet-image-layer.leaflet-interactive path {
-    pointer-events: visiblePainted;
     pointer-events: auto;
 }
 

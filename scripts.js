@@ -68,99 +68,163 @@ function setupEventListeners() {
     });
 }
 
-// Load UNESCO sites from Wikidata
+// Load UNESCO sites from DigitalOcean Function
 async function loadSites() {
     try {
-        console.log('Loading sites from Wikidata...');
+        console.log('Loading sites from DigitalOcean Function...');
         
+        // Use your actual DigitalOcean function URL
+        const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
+        
+        // The full query for UNESCO World Heritage Sites
         const query = `
-SELECT ?item ?itemLabel ?country ?latitude ?longitude ?inscriptionYear ?type ?description ?officialUrl WHERE {
-  ?item wdt:P31 wd:Q15941471.
+SELECT ?item ?itemLabel ?country ?coordinate ?inscriptionYear WHERE {
+  ?item wdt:P281 ?unescoId.
   ?item rdfs:label ?itemLabel.
   FILTER(LANG(?itemLabel) = "en")
-  
   OPTIONAL { ?item wdt:P17 ?countryItem. ?countryItem rdfs:label ?country. FILTER(LANG(?country) = "en") }
-  OPTIONAL { ?item wdt:P625 ?coordinate. BIND(STRDT(STRBEFORE(STR(?coordinate), " "), xsd:double) AS ?latitude) }
-  OPTIONAL { ?item wdt:P625 ?coordinate. BIND(STRDT(STRAFTER(STR(?coordinate), " "), xsd:double) AS ?longitude) }
+  OPTIONAL { ?item wdt:P625 ?coordinate. }
   OPTIONAL { ?item wdt:P575 ?inscribed. BIND(YEAR(?inscribed) AS ?inscriptionYear) }
-  OPTIONAL { ?item wdt:P1435 ?typeItem. ?typeItem rdfs:label ?type. FILTER(LANG(?type) = "en") }
-  OPTIONAL { ?item wdt:P1813 ?description. FILTER(LANG(?description) = "en") }
-  OPTIONAL { ?item wdt:P856 ?officialUrl. }
-  
-  FILTER (?inscriptionYear >= 1978)
-  
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
-ORDER BY ?inscriptionYear
+LIMIT 100
 `;
         
-        const encodedQuery = encodeURIComponent(query);
-        const apiUrl = `https://query.wikidata.org/sparql?query=${encodedQuery}&format=json`;
-        const proxyUrl = 'https://corsproxy.io/?';
-        const finalUrl = proxyUrl + encodeURIComponent(apiUrl);
+        // Encode the query and make the request
+        const fullUrl = `${functionUrl}?query=${encodeURIComponent(query)}`;
         
-        console.log('Fetching from:', finalUrl);
+        console.log('Fetching from function:', fullUrl);
         
-        const response = await fetch(finalUrl, {
-            headers: {
-                'Accept': 'application/sparql-results+json'
-            }
-        });
-        
+        const response = await fetch(fullUrl);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data = await response.json();
-        console.log('Raw data received:', data);
+        console.log('Function returned:', data);
         
         if (!data.results || !data.results.bindings) {
-            throw new Error('Invalid data structure');
+            throw new Error('Invalid data structure returned from function');
         }
         
-        state.sites = data.results.bindings.map(item => ({
+        processSitesData(data);
+        
+    } catch (error) {
+        console.error('Error loading sites from function:', error);
+        // Fallback to test data
+        loadTestSites();
+    }
+}
+
+// Process the sites data
+function processSitesData(data) {
+    console.log('Processing sites ', data);
+    
+    if (!data.results || !data.results.bindings) {
+        throw new Error('Invalid data structure');
+    }
+    
+    console.log('Number of results:', data.results.bindings.length);
+    
+    state.sites = data.results.bindings.map(item => {
+        // Parse coordinates from Point format
+        let latitude = 0;
+        let longitude = 0;
+        
+        if (item.coordinate?.value) {
+            // Extract from Point(123.456 78.901) format
+            const coordMatch = item.coordinate.value.match(/Point\(([-\d.]+)\s+([-\d.]+)\)/);
+            if (coordMatch) {
+                longitude = parseFloat(coordMatch[1]);
+                latitude = parseFloat(coordMatch[2]);
+            }
+        }
+        
+        // Get inscription year
+        let inscriptionYear = 1978;
+        if (item.inscriptionYear?.value) {
+            inscriptionYear = parseInt(item.inscriptionYear.value);
+        }
+        
+        return {
             id: item.item?.value ? item.item.value.split('/').pop() : 'unknown',
             name: item.itemLabel?.value || 'Unknown Site',
             country: item.country?.value || 'Unknown',
-            latitude: item.latitude?.value ? parseFloat(item.latitude.value) : 0,
-            longitude: item.longitude?.value ? parseFloat(item.longitude.value) : 0,
-            inscriptionYear: item.inscriptionYear?.value ? parseInt(item.inscriptionYear.value) : 1978,
-            type: (() => {
-                const t = item.type?.value?.toLowerCase() || '';
-                if (t.includes('cultural')) return 'cultural';
-                if (t.includes('natural')) return 'natural';
-                if (t.includes('mixed')) return 'mixed';
-                return 'cultural';
-            })(),
-            description: item.description?.value || 'No description available.',
-            officialUrl: item.officialUrl?.value || ''
-        })).filter(site => 
-            site.latitude && 
-            site.longitude && 
-            !isNaN(site.latitude) && 
-            !isNaN(site.longitude) &&
-            site.latitude >= -90 && 
-            site.latitude <= 90 &&
-            site.longitude >= -180 && 
-            site.longitude <= 180
-        );
-        
-        console.log('Processed sites:', state.sites.length);
-        
-        // Filter sites initially
-        filterSites();
-        updateCounts();
-        updateProgress();
-        
-        state.loading = false;
-        hideLoading();
-        
-    } catch (error) {
-        console.error('Error loading sites:', error);
-        state.error = 'Failed to load UNESCO World Heritage Sites data.';
-        hideLoading();
-        showError(state.error);
-    }
+            latitude: latitude,
+            longitude: longitude,
+            inscriptionYear: inscriptionYear,
+            type: 'cultural', // Default for now
+            description: 'UNESCO World Heritage Site',
+            officialUrl: ''
+        };
+    }).filter(site => 
+        site.latitude && 
+        site.longitude && 
+        !isNaN(site.latitude) && 
+        !isNaN(site.longitude) &&
+        site.latitude >= -90 && 
+        site.latitude <= 90 &&
+        site.longitude >= -180 && 
+        site.longitude <= 180
+    );
+    
+    console.log('Processed valid sites:', state.sites.length);
+    
+    // Filter sites initially
+    filterSites();
+    updateCounts();
+    updateProgress();
+    
+    state.loading = false;
+    hideLoading();
+}
+
+// Test data fallback
+function loadTestSites() {
+    console.log('Loading test data...');
+    
+    const testSites = [
+        {
+            id: "1",
+            name: "Yellowstone National Park",
+            country: "United States",
+            latitude: 44.4280,
+            longitude: -110.5885,
+            inscriptionYear: 1978,
+            type: "natural",
+            description: "First national park in the world, known for its geothermal features.",
+            officialUrl: "https://www.nps.gov/yell/index.htm"
+        },
+        {
+            id: "2",
+            name: "Great Wall of China",
+            country: "China",
+            latitude: 40.4319,
+            longitude: 116.5704,
+            inscriptionYear: 1987,
+            type: "cultural",
+            description: "Series of fortifications made of stone, brick, wood and other materials.",
+            officialUrl: "https://whc.unesco.org/en/list/438"
+        },
+        {
+            id: "3",
+            name: "Galápagos Islands",
+            country: "Ecuador",
+            latitude: -0.7893,
+            longitude: -91.2109,
+            inscriptionYear: 1978,
+            type: "natural",
+            description: "Volcanic archipelago famous for its endemic species studied by Charles Darwin.",
+            officialUrl: "https://whc.unesco.org/en/list/1"
+        }
+    ];
+    
+    state.sites = testSites;
+    filterSites();
+    updateCounts();
+    updateProgress();
+    state.loading = false;
+    hideLoading();
+    initMap();
 }
 
 // Filter sites based on current state
@@ -208,14 +272,20 @@ function showError(message) {
     elements.loading.innerHTML = `
         <div style="text-align: center; max-width: 500px; padding: 1rem;">
             <p style="color: #d4183d; margin-bottom: 1rem;">${message}</p>
-            <button onclick="location.reload()" style="
-                padding: 0.5rem 1rem;
-                background: #030213;
-                color: white;
-                border: none;
-                border-radius: 0.5rem;
-                cursor: pointer;
-            ">Retry</button>
+            <button
+                onclick="location.reload()"
+                style="
+                    padding: 0.5rem 1rem;
+                    background: #030213;
+                    color: white;
+                    border: none;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                "
+                aria-label="Retry loading data"
+            >
+                Retry
+            </button>
         </div>
     `;
 }
@@ -259,16 +329,27 @@ function updateMap() {
                     <p style="color: #000000; margin: 4px 0;"><strong>Country:</strong> ${site.country}</p>
                     <p style="color: #000000; margin: 4px 0;"><strong>Inscribed:</strong> ${site.inscriptionYear}</p>
                     <p style="color: #000000; margin: 8px 0;">${site.description}</p>
-                    <a href="${site.officialUrl}" target="_blank" rel="noopener noreferrer" style="color: #10B981; text-decoration: underline; font-size: 11px;">View on UNESCO →</a>
+                    <a 
+                        href="${site.officialUrl}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style="color: #10B981; text-decoration: underline; font-size: 11px;"
+                    >
+                        View on UNESCO →
+                    </a>
                 </div>
             `);
         
         marker.on('mouseover', function() {
-            this.bindTooltip(`<strong>${site.name}</strong>`, {
+            marker.bindTooltip(`<strong>${site.name}</strong>`, {
                 permanent: false,
-                direction: 'top'
+                direction: 'top',
+                className: 'tooltip-popup',
+                offset: [0, -10],
             }).openTooltip();
         });
+        
+        marker.on('mouseout', () => marker.closeTooltip());
         
         markers.push(marker);
     });
@@ -282,19 +363,19 @@ function updateMap() {
 
 // Create custom icons
 function createIcon(type) {
-    const colors = {
+    const colorMap = {
         cultural: '#8B5CF6', // violet
         natural: '#10B981',  // emerald
-        mixed: '#F59E0B'     // amber
+        mixed: '#F59E0B'    // amber
     };
     
     const svgIcon = `
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42" fill="none">
-            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colors[type]}" stroke="#ffffff" stroke-width="1"/>
+            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colorMap[type]}" stroke="oklch(0.145 0 0)" stroke-width="1"/>
             <circle cx="16" cy="20" r="4" fill="white"/>
-            ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="#ffffff"/>' : ''}
-            ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="#ffffff"/>' : ''}
-            ${type === 'mixed' ? '<path d="M14 24L16 20L18 24H14Z M14 28H18V32H14V28Z" fill="#ffffff"/>' : ''}
+            ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="oklch(0.145 0 0)"/>' : ''}
+            ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="oklch(0.145 0 0)"/>' : ''}
+            ${type === 'mixed' ? '<path d="M14 24L16 20L18 24H14Z M14 28H18V32H14V28Z" fill="oklch(0.145 0 0)"/>' : ''}
         </svg>
     `;
     
@@ -303,7 +384,7 @@ function createIcon(type) {
         iconSize: [32, 42],
         iconAnchor: [16, 42],
         popupAnchor: [0, -42],
-        className: ''
+        className: 'custom-heritage-marker',
     });
 }
 

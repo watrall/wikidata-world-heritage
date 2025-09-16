@@ -365,7 +365,7 @@ function updateMap() {
 
 // Create custom icons
 function createIcon(type) {
-    const colorMap = {
+    const colors = {
         cultural: '#8B5CF6', // violet
         natural: '#10B981',  // emerald
         mixed: '#F59E0B'     // amber
@@ -373,11 +373,11 @@ function createIcon(type) {
     
     const svgIcon = `
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42" fill="none">
-            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colorMap[type] || '#8B5CF6'}" stroke="oklch(0.145 0 0)" stroke-width="1"/>
+            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colors[type]}" stroke="#030213" stroke-width="1"/>
             <circle cx="16" cy="20" r="4" fill="white"/>
-            ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="oklch(0.145 0 0)"/>' : ''}
-            ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="oklch(0.145 0 0)"/>' : ''}
-            ${type === 'mixed' ? '<path d="M14 24L16 20L18 24H14Z M14 28H18V32H14V28Z" fill="oklch(0.145 0 0)"/>' : ''}
+            ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="#030213"/>' : ''}
+            ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="#030213"/>' : ''}
+            ${type === 'mixed' ? '<path d="M14 24L16 20L18 24H14Z M14 28H18V32H14V28Z" fill="#030213"/>' : ''}
         </svg>
     `;
     

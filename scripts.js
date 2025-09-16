@@ -76,17 +76,19 @@ async function loadSites() {
         // Use your actual DigitalOcean function URL
         const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
         
-        // The full query for UNESCO World Heritage Sites
+        // Correct query using Q2039348 (UNESCO World Heritage Site) with coordinates
         const query = `
 SELECT ?item ?itemLabel ?country ?coordinate ?inscriptionYear WHERE {
-  ?item wdt:P281 ?unescoId.
+  ?item wdt:P31/wdt:P279* wd:Q2039348.
+  ?item wdt:P625 ?coordinate.
   ?item rdfs:label ?itemLabel.
   FILTER(LANG(?itemLabel) = "en")
   OPTIONAL { ?item wdt:P17 ?countryItem. ?countryItem rdfs:label ?country. FILTER(LANG(?country) = "en") }
-  OPTIONAL { ?item wdt:P625 ?coordinate. }
   OPTIONAL { ?item wdt:P575 ?inscribed. BIND(YEAR(?inscribed) AS ?inscriptionYear) }
+  FILTER (?inscriptionYear >= 1978)
 }
-LIMIT 100
+ORDER BY ?inscriptionYear
+LIMIT 300
 `;
         
         // Encode the query and make the request
@@ -139,7 +141,7 @@ function processSitesData(data) {
             }
         }
         
-        // Get inscription year
+        // Get inscription year (default to 1978 if not available)
         let inscriptionYear = 1978;
         if (item.inscriptionYear?.value) {
             inscriptionYear = parseInt(item.inscriptionYear.value);
@@ -366,12 +368,12 @@ function createIcon(type) {
     const colorMap = {
         cultural: '#8B5CF6', // violet
         natural: '#10B981',  // emerald
-        mixed: '#F59E0B'    // amber
+        mixed: '#F59E0B'     // amber
     };
     
     const svgIcon = `
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42" fill="none">
-            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colorMap[type]}" stroke="oklch(0.145 0 0)" stroke-width="1"/>
+            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colorMap[type] || '#8B5CF6'}" stroke="oklch(0.145 0 0)" stroke-width="1"/>
             <circle cx="16" cy="20" r="4" fill="white"/>
             ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="oklch(0.145 0 0)"/>' : ''}
             ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="oklch(0.145 0 0)"/>' : ''}

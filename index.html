@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UNESCO World Heritage Sites</title>
+    <title>Wikidata World Heritage Explorer</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
@@ -12,7 +12,7 @@
         <div id="loading">
             <div>
                 <div class="spinner"></div>
-                <p>Loading UNESCO World Heritage Sites...</p>
+                <p>Loading Wikidata World Heritage Explorer...</p>
             </div>
         </div>
         
@@ -21,38 +21,47 @@
         <div id="controls">
             <div class="control-panel">
                 <div class="header">
-                    <h1>UNESCO World Heritage Sites</h1>
+                    <div class="header-top">
+                        <h1>Wikidata World Heritage Explorer</h1>
+                        <button id="toggle-controls" class="toggle-btn" aria-label="Toggle controls">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
                     <p id="site-count">Loading sites...</p>
                 </div>
                 
-                <div class="filters">
-                    <div class="filter-btn active" data-type="all">
-                        <div>All</div>
-                        <div id="count-all">0</div>
+                <div id="expanded-controls">
+                    <div class="filters">
+                        <div class="filter-btn active" data-type="all">
+                            <div>All</div>
+                            <div id="count-all">0</div>
+                        </div>
+                        <div class="filter-btn" data-type="cultural">
+                            <div>Cultural</div>
+                            <div id="count-cultural">0</div>
+                        </div>
+                        <div class="filter-btn" data-type="natural">
+                            <div>Natural</div>
+                            <div id="count-natural">0</div>
+                        </div>
+                        <div class="filter-btn" data-type="mixed">
+                            <div>Mixed</div>
+                            <div id="count-mixed">0</div>
+                        </div>
                     </div>
-                    <div class="filter-btn" data-type="cultural">
-                        <div>Cultural</div>
-                        <div id="count-cultural">0</div>
-                    </div>
-                    <div class="filter-btn" data-type="natural">
-                        <div>Natural</div>
-                        <div id="count-natural">0</div>
-                    </div>
-                    <div class="filter-btn" data-type="mixed">
-                        <div>Mixed</div>
-                        <div id="count-mixed">0</div>
-                    </div>
-                </div>
-                
-                <div class="slider-container">
-                    <div class="slider-label">
-                        <span>Year Range: 1978 – <span id="current-year">2024</span></span>
-                        <span class="year-display" id="selected-year">2024</span>
-                    </div>
-                    <input type="range" id="year-slider" class="slider" min="1978" max="2024" value="2024">
-                    <div class="slider-label">
-                        <span id="total-sites">0 total sites</span>
-                        <span id="progress-percent">100% through time</span>
+                    
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Year Range: 1978 – <span id="current-year">2024</span></span>
+                            <span class="year-display" id="selected-year">2024</span>
+                        </div>
+                        <input type="range" id="year-slider" class="slider" min="1978" max="2024" value="2024">
+                        <div class="slider-label">
+                            <span id="total-sites">0 total sites</span>
+                            <span id="progress-percent">100% through time</span>
+                        </div>
                     </div>
                 </div>
             </div>

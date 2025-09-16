@@ -5,7 +5,8 @@ const state = {
     selectedYear: new Date().getFullYear(),
     selectedType: 'all',
     loading: true,
-    error: null
+    error: null,
+    controlsCollapsed: false
 };
 
 // DOM elements
@@ -18,7 +19,10 @@ const elements = {
     currentYear: document.getElementById('current-year'),
     totalSites: document.getElementById('total-sites'),
     progressPercent: document.getElementById('progress-percent'),
-    filterButtons: document.querySelectorAll('.filter-btn')
+    filterButtons: document.querySelectorAll('.filter-btn'),
+    toggleControls: document.getElementById('toggle-controls'),
+    controlsPanel: document.getElementById('controls'),
+    expandedControls: document.getElementById('expanded-controls')
 };
 
 // Initialize the app
@@ -66,6 +70,22 @@ function setupEventListeners() {
             updateCounts();
         });
     });
+    
+    // Toggle controls
+    elements.toggleControls.addEventListener('click', () => {
+        state.controlsCollapsed = !state.controlsCollapsed;
+        updateControlsVisibility();
+    });
+}
+
+// Update controls visibility
+function updateControlsVisibility() {
+    const controlPanel = document.querySelector('.control-panel');
+    if (state.controlsCollapsed) {
+        controlPanel.classList.add('collapsed');
+    } else {
+        controlPanel.classList.remove('collapsed');
+    }
 }
 
 // Load UNESCO sites from DigitalOcean Function
@@ -302,9 +322,9 @@ function initMap() {
     // Create map
     map = L.map('map').setView([20, 0], 2);
     
-    // Add tile layer
+    // Add tile layer with updated attribution
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>'
     }).addTo(map);
     
     // Update map with sites

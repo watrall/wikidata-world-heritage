@@ -195,9 +195,9 @@ ORDER BY ?siteName
         const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify({ query })
+            body: new URLSearchParams({ query })
         });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

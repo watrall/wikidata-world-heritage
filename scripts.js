@@ -192,14 +192,12 @@ ORDER BY ?siteName
         // Send the query through the DigitalOcean function
         console.log('Fetching from DigitalOcean function...');
         
-        const payload = new URLSearchParams({ query });
-
-        const response = await fetch(`${functionUrl}?${payload.toString()}`, {
+        const response = await fetch(functionUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
+                'Content-Type': 'application/json'
             },
-            body: payload
+            body: JSON.stringify({ query })
         });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);

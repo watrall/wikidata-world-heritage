@@ -8,15 +8,24 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: #ffffff;
     color: #252525;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
 #app {
     width: 100vw;
     height: 100vh;
-    height: 100dvh;
     min-height: 100vh;
     position: relative;
+}
+
+@supports (height: 100dvh) {
+    #app {
+        height: 100dvh;
+    }
+
+    .control-panel {
+        max-height: calc(100dvh - 2rem);
+    }
 }
 
 #map {
@@ -56,7 +65,7 @@ body {
     bottom: 1rem;
     left: 1rem;
     right: 1rem;
-    z-index: 900;
+    z-index: 1000;
     pointer-events: none;
 }
 
@@ -69,6 +78,8 @@ body {
     padding: 1rem;
     pointer-events: auto;
     margin-bottom: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
 }
 
 .header-top {

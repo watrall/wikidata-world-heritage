@@ -16,6 +16,7 @@ const elements = {
     siteCount: document.getElementById('site-count'),
     selectedYear: document.getElementById('selected-year'),
     yearSlider: document.getElementById('year-slider'),
+    minYear: document.getElementById('min-year'),
     currentYear: document.getElementById('current-year'),
     totalSites: document.getElementById('total-sites'),
     progressPercent: document.getElementById('progress-percent'),
@@ -33,15 +34,21 @@ async function init() {
     elements.currentYear.textContent = state.selectedYear;
     elements.yearSlider.value = state.selectedYear;
     elements.yearSlider.max = state.selectedYear;
+    elements.minYear.textContent = elements.yearSlider.min;
+    elements.selectedYear.textContent = state.selectedYear;
     
     // Add event listeners
     setupEventListeners();
     
     // Load sites
-    await loadSites();
-    
-    // Initialize map
-    initMap();
+    try {
+        await loadSites();
+        
+        // Initialize map
+        initMap();
+    } catch (error) {
+        console.error('Initialization failed:', error);
+    }
 }
 
 // Set up event listeners
@@ -98,88 +105,72 @@ async function loadSites() {
         
         // Improved SPARQL query for real UNESCO World Heritage Sites data
         const query = `
-SELECT
-  ?siteName
-  ?category
-  ?countryName
-  ?lat ?lon
-  ?description
-  ?unescoURL
+SELECT ?site ?siteName ?category ?countryName ?lat ?lon ?description ?unescoURL ?inscriptionYear
 WHERE {
-  # ---------- Collect display fields (one row per site) ----------
   {
-    SELECT
-      ?site
-      (SAMPLE(?lEn)   AS ?lbl_en)
-      (SAMPLE(?lAny)  AS ?lbl_any)
-      (SAMPLE(?cName) AS ?countryName)
-      (SAMPLE(?dEn)   AS ?description)
-      (SAMPLE(?latVal) AS ?lat)
-      (SAMPLE(?lonVal) AS ?lon)
-      (SAMPLE(?id)     AS ?whsId)
-      (SAMPLE(?url973) AS ?unescoURL_p973)
+    SELECT ?site
+           (SAMPLE(?labelEn) AS ?siteLabelEn)
+           (SAMPLE(?labelAny) AS ?siteLabelAny)
+           (SAMPLE(?countryLabel) AS ?countryName)
+           (SAMPLE(?descriptionEn) AS ?description)
+           (SAMPLE(?latValue) AS ?lat)
+           (SAMPLE(?lonValue) AS ?lon)
+           (SAMPLE(?whsIdVal) AS ?whsId)
+           (SAMPLE(?unescoUrlRaw) AS ?unescoURLRaw)
+           (SAMPLE(?yearValue) AS ?inscriptionYear)
     WHERE {
-      # Current WHS (exclude delisted that have an end time on the WHS statement)
       ?site wdt:P1435 wd:Q9259 .
       FILTER NOT EXISTS {
         ?site p:P1435 ?st .
         ?st ps:P1435 wd:Q9259 ; pq:P582 ?end .
       }
-
-      # Names (avoid label service)
-      OPTIONAL { ?site rdfs:label ?lEn  FILTER(LANG(?lEn) = "en") }
-      OPTIONAL { ?site rdfs:label ?lAny }
-
-      # Country (plain-text English)
+      OPTIONAL { ?site rdfs:label ?labelEn FILTER(LANG(?labelEn) = "en") }
+      OPTIONAL { ?site rdfs:label ?labelAny }
       OPTIONAL {
-        ?site wdt:P17 ?c .
-        OPTIONAL { ?c rdfs:label ?cName FILTER(LANG(?cName) = "en") }
+        ?site wdt:P17 ?country .
+        ?country rdfs:label ?countryLabel FILTER(LANG(?countryLabel) = "en")
       }
-
-      # English description
-      OPTIONAL { ?site schema:description ?dEn FILTER(LANG(?dEn) = "en") }
-
-      # Coordinates → lat/lon
+      OPTIONAL { ?site schema:description ?descriptionEn FILTER(LANG(?descriptionEn) = "en") }
       OPTIONAL {
-        ?site wdt:P625 ?coordVal .
-        BIND(geof:latitude(?coordVal)  AS ?latVal)
-        BIND(geof:longitude(?coordVal) AS ?lonVal)
+        ?site wdt:P625 ?coords .
+        BIND(geof:latitude(?coords) AS ?latValue)
+        BIND(geof:longitude(?coords) AS ?lonValue)
       }
-
-      # UNESCO World Heritage ID (preferred for official URL)
-      OPTIONAL { ?site wdt:P757 ?id }
-
-      # Fallback: some items store the UNESCO list URL directly in P973
+      OPTIONAL { ?site wdt:P757 ?whsIdVal }
       OPTIONAL {
-        ?site wdt:P973 ?url973 .
-        FILTER(CONTAINS(STR(?url973), "whc.unesco.org/en/list/"))
+        ?site wdt:P973 ?unescoUrlRaw .
+        FILTER(CONTAINS(STR(?unescoUrlRaw), "whc.unesco.org/en/list/"))
       }
+      OPTIONAL {
+        ?site p:P1435 ?whsStatement .
+        ?whsStatement ps:P1435 wd:Q9259 .
+        OPTIONAL { ?whsStatement pq:P580 ?inscriptionDate }
+      }
+      BIND(IF(BOUND(?inscriptionDate), YEAR(?inscriptionDate), 0) AS ?yearValue)
     }
     GROUP BY ?site
   }
 
-  # Final site name (English label, else any label)
-  BIND(COALESCE(?lbl_en, ?lbl_any) AS ?siteName)
+  BIND(COALESCE(?siteLabelEn, ?siteLabelAny) AS ?siteName)
 
-  # ---------- Category detection via criterion ITEMS (uses numeric P1545 on the criterion items) ----------
   BIND(
     IF(
       EXISTS {
-        ?site wdt:P2614 ?critC .
-        ?critC wdt:P1545 ?nC .
-        FILTER(?nC >= 1 && ?nC <= 6)     # i..vi -> cultural
+        ?site wdt:P2614 ?criterionC .
+        ?criterionC wdt:P1545 ?numberC .
+        FILTER(?numberC >= 1 && ?numberC <= 6)
       } &&
       EXISTS {
-        ?site wdt:P2614 ?critN .
-        ?critN wdt:P1545 ?nN .
-        FILTER(?nN >= 7 && ?nN <= 10)    # vii..x -> natural
+        ?site wdt:P2614 ?criterionN .
+        ?criterionN wdt:P1545 ?numberN .
+        FILTER(?numberN >= 7 && ?numberN <= 10)
       },
       "mixed",
       IF(
         EXISTS {
-          ?site wdt:P2614 ?critN2 .
-          ?critN2 wdt:P1545 ?nN2 .
-          FILTER(?nN2 >= 7 && ?nN2 <= 10)
+          ?site wdt:P2614 ?criterionNOnly .
+          ?criterionNOnly wdt:P1545 ?numberNOnly .
+          FILTER(?numberNOnly >= 7 && ?numberNOnly <= 10)
         },
         "natural",
         "cultural"
@@ -187,24 +178,27 @@ WHERE {
     ) AS ?category
   )
 
-  # Official UNESCO URL: prefer P757-based; else P973 fallback; else empty
   BIND(
-    IF(BOUND(?whsId),
-       CONCAT("https://whc.unesco.org/en/list/", STR(?whsId)),
-       IF(BOUND(?unescoURL_p973), STR(?unescoURL_p973), "")
+    IF(
+      BOUND(?whsId),
+      CONCAT("https://whc.unesco.org/en/list/", STR(?whsId)),
+      COALESCE(STR(?unescoURLRaw), "")
     ) AS ?unescoURL
   )
 }
 ORDER BY ?siteName
 `;
         
-        // Encode the query and make the request through your DigitalOcean function
-        const encodedQuery = encodeURIComponent(query);
-        const fullUrl = `${functionUrl}?query=${encodedQuery}`;
+        // Send the query through the DigitalOcean function
+        console.log('Fetching from DigitalOcean function...');
         
-        console.log('Fetching from DigitalOcean function:', fullUrl);
-        
-        const response = await fetch(fullUrl);
+        const response = await fetch(functionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query })
+        });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -220,8 +214,9 @@ ORDER BY ?siteName
         
     } catch (error) {
         console.error('Error loading sites from function:', error);
-        // Fallback to test data
-        loadTestSites();
+        state.loading = false;
+        showError('Unable to load data from Wikidata. Please try again.');
+        throw error;
     }
 }
 
@@ -244,6 +239,9 @@ function processSitesData(data) {
             latitude = parseFloat(item.lat.value);
             longitude = parseFloat(item.lon.value);
         }
+
+        const rawYear = item.inscriptionYear?.value ? parseInt(item.inscriptionYear.value, 10) : NaN;
+        const inscriptionYear = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : 1978;
         
         // Determine type from category or default to cultural
         let type = 'cultural';
@@ -257,7 +255,7 @@ function processSitesData(data) {
             country: item.countryName?.value || 'Unknown',
             latitude: latitude,
             longitude: longitude,
-            inscriptionYear: 1978, // Default for now, will update with real data
+            inscriptionYear,
             type: type,
             description: item.description?.value || 'UNESCO World Heritage Site',
             officialUrl: item.unescoURL?.value || ''
@@ -272,7 +270,17 @@ function processSitesData(data) {
         site.longitude >= -180 && 
         site.longitude <= 180
     );
-    
+
+    const availableYears = state.sites
+        .map(site => site.inscriptionYear)
+        .filter(year => Number.isFinite(year) && year > 0);
+
+    if (availableYears.length) {
+        const minYear = Math.min(...availableYears);
+        elements.yearSlider.min = minYear;
+        elements.minYear.textContent = minYear;
+    }
+
     console.log('Processed valid sites:', state.sites.length);
     
     // Filter sites initially
@@ -346,9 +354,13 @@ function filterSites() {
 
 // Update progress percentage
 function updateProgress() {
-    const minYear = 1978;
-    const maxYear = new Date().getFullYear();
-    const percent = Math.round(((state.selectedYear - minYear) / (maxYear - minYear)) * 100);
+    const minAttr = parseInt(elements.yearSlider.min, 10);
+    const maxAttr = parseInt(elements.yearSlider.max, 10);
+    const minYear = Number.isFinite(minAttr) ? minAttr : 1978;
+    const maxYear = Number.isFinite(maxAttr) ? maxAttr : new Date().getFullYear();
+    const clampedSelected = Math.max(minYear, Math.min(state.selectedYear, maxYear));
+    const range = Math.max(1, maxYear - minYear);
+    const percent = Math.round(((clampedSelected - minYear) / range) * 100);
     elements.progressPercent.textContent = `${percent}% through time`;
     elements.totalSites.textContent = `${state.sites.length} total sites`;
 }
@@ -375,6 +387,7 @@ function hideLoading() {
 
 // Show error
 function showError(message) {
+    elements.loading.style.display = 'flex';
     elements.loading.innerHTML = `
         <div style="text-align: center; max-width: 500px; padding: 1rem;">
             <p style="color: #d4183d; margin-bottom: 1rem;">${message}</p>

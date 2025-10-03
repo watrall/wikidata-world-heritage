@@ -25,6 +25,14 @@ const elements = {
     expandedControls: document.getElementById('expanded-controls')
 };
 
+const mapState = {
+    map: null,
+    markers: [],
+    shouldFitBounds: true,
+    userHasAdjusted: false,
+    isAutoFitting: false
+};
+
 // Initialize the app
 async function init() {
     console.log('Initializing app...');
@@ -64,6 +72,7 @@ function setupEventListeners() {
             btn.classList.add('active');
             // Update selected type
             state.selectedType = btn.dataset.type;
+            mapState.shouldFitBounds = true;
             // Filter and update
             filterSites();
             updateMap();
@@ -185,6 +194,8 @@ function processSitesData(sites) {
 
     state.loading = false;
     hideLoading();
+    mapState.shouldFitBounds = true;
+    mapState.userHasAdjusted = false;
 }
 
 function resolveSiteType(site, criteria = []) {
@@ -376,23 +387,36 @@ function showError(message) {
     `;
 }
 
-// Map initialization
-let map;
-let markers = [];
-
 function initMap() {
     console.log('Initializing map with OpenStreetMap tiles...');
     
     // Create map
-    map = L.map('map').setView([20, 0], 2);
+    mapState.map = L.map('map').setView([20, 0], 2);
+
+    mapState.map.on('movestart', () => {
+        if (!mapState.isAutoFitting) {
+            mapState.userHasAdjusted = true;
+            mapState.shouldFitBounds = false;
+        }
+    });
+
+    mapState.map.on('zoomstart', () => {
+        if (!mapState.isAutoFitting) {
+            mapState.userHasAdjusted = true;
+            mapState.shouldFitBounds = false;
+        }
+    });
     
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
         minZoom: 1,
         maxZoom: 19,
-        crossOrigin: true
-    }).addTo(map);
+        crossOrigin: true,
+        keepBuffer: 4,
+        updateWhenIdle: true,
+        updateWhenZooming: false
+    }).addTo(mapState.map);
     
     // Update map with sites
     updateMap();
@@ -400,18 +424,18 @@ function initMap() {
 
 // Update map with current filtered sites
 function updateMap() {
-    if (!map) return;
+    if (!mapState.map) return;
     
     // Clear existing markers
-    markers.forEach(marker => map.removeLayer(marker));
-    markers = [];
+    mapState.markers.forEach(marker => mapState.map.removeLayer(marker));
+    mapState.markers = [];
     
     // Add new markers
     state.filteredSites.forEach(site => {
         const icon = createIcon(site.type);
         
         const marker = L.marker([site.latitude, site.longitude], { icon })
-            .addTo(map)
+            .addTo(mapState.map)
             .bindPopup(`
                 <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     <h3 style="font-weight: bold; color: #000000; margin: 0 0 4px 0;">${site.name}</h3>
@@ -440,13 +464,19 @@ function updateMap() {
 
         marker.on('mouseout', () => marker.closeTooltip());
         
-        markers.push(marker);
+        mapState.markers.push(marker);
     });
     
     // Fit bounds if we have sites
-    if (state.filteredSites.length > 0) {
-        const group = L.featureGroup(markers);
-        map.fitBounds(group.getBounds(), { padding: [50, 50] });
+    const shouldAutoFit = mapState.markers.length > 0 && mapState.shouldFitBounds;
+    if (shouldAutoFit) {
+        mapState.isAutoFitting = true;
+        mapState.map.once('moveend', () => {
+            mapState.isAutoFitting = false;
+        });
+        const group = L.featureGroup(mapState.markers);
+        mapState.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        mapState.shouldFitBounds = false;
     }
 }
 

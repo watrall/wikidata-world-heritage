@@ -381,12 +381,15 @@ function updateSliderBubble() {
 
     const percent = (year - min) / (max - min);
     const boundedPercent = Math.min(Math.max(percent, 0), 1);
-    const sliderWidth = slider.offsetWidth;
+    const sliderRect = slider.getBoundingClientRect();
+    const containerRect = slider.parentElement.getBoundingClientRect();
+    const sliderWidth = sliderRect.width;
     const bubbleWidth = bubble.offsetWidth;
     const halfBubble = bubbleWidth / 2;
-    const offsetLeft = slider.offsetLeft;
-    let leftPx = offsetLeft + boundedPercent * sliderWidth;
-    leftPx = Math.min(Math.max(leftPx, offsetLeft + halfBubble), offsetLeft + sliderWidth - halfBubble);
+    const containerLeft = sliderRect.left - containerRect.left;
+
+    let leftPx = containerLeft + boundedPercent * sliderWidth;
+    leftPx = Math.min(Math.max(leftPx, containerLeft + halfBubble), containerLeft + sliderWidth - halfBubble);
     bubble.style.left = `${leftPx}px`;
 }
 

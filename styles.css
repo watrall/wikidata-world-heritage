@@ -4,11 +4,56 @@
     box-sizing: border-box;
 }
 
+:root {
+    --font-size: 16px;
+    --font-weight-medium: 500;
+    --font-weight-normal: 400;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: #ffffff;
     color: #252525;
+    font-size: var(--font-size);
+    line-height: 1.5;
     overflow: hidden;
+}
+
+h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+}
+
+h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+}
+
+h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+}
+
+h4,
+label,
+button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+}
+
+p,
+input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
 }
 
 #app {

@@ -378,11 +378,6 @@ function filterSites() {
 
 // Update progress percentage
 function updateProgress() {
-    const range = state.maxYear - state.minYear;
-    const percent = range > 0
-        ? Math.round(((state.selectedYear - state.minYear) / range) * 100)
-        : 100;
-    elements.progressPercent.textContent = `${percent}% through time`;
     elements.totalSites.textContent = `${state.sites.length} total sites`;
 }
 

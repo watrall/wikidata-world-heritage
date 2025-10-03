@@ -96,34 +96,27 @@ async function loadSites() {
         // Use your actual DigitalOcean function URL
         const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
         
-        // Updated SPARQL query from your Postman test
+        // Correct query using Q2039348 (UNESCO World Heritage Site) with coordinates
         const query = `
-PREFIX wd: <http://www.wikidata.org/entity/>
-PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-PREFIX p: <http://www.wikidata.org/prop/>
-PREFIX ps: <http://www.wikidata.org/prop/statement/>
-PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
-PREFIX schema: <http://schema.org/>
-
-SELECT ?site ?siteLabel ?siteDescription ?coord ?inscriptionYear ?unescoId ?unescoUrl
-WHERE {
-  ?site wdt:P1435 wd:Q9259.
-  OPTIONAL { ?site wdt:P625 ?coord. }
-  OPTIONAL {
-    ?site p:P1435 ?whsStmt.
-    ?whsStmt ps:P1435 wd:Q9259.
-    OPTIONAL {
-      ?whsStmt pq:P580 ?inscribed.
-      BIND(YEAR(?inscribed) AS ?inscriptionYear)
-    }
-  }
-  OPTIONAL {
-    ?site wdt:P757 ?unescoId.
-    BIND(IRI(CONCAT("https://whc.unesco.org/en/list/", STR(?unescoId))) AS ?unescoUrl)
-  }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+SELECT ?item ?itemLabel ?country ?latitude ?longitude ?inscriptionYear ?type ?description ?officialUrl WHERE {
+  ?item wdt:P31/wdt:P279* wd:Q2039348.
+  ?item rdfs:label ?itemLabel.
+  FILTER(LANG(?itemLabel) = "en")
+  
+  OPTIONAL { ?item wdt:P17 ?countryItem. ?countryItem rdfs:label ?country. FILTER(LANG(?country) = "en") }
+  OPTIONAL { ?item wdt:P625 ?coordinate. BIND(STRDT(STRBEFORE(STR(?coordinate), " "), xsd:double) AS ?latitude) }
+  OPTIONAL { ?item wdt:P625 ?coordinate. BIND(STRDT(STRAFTER(STR(?coordinate), " "), xsd:double) AS ?longitude) }
+  OPTIONAL { ?item wdt:P575 ?inscribed. BIND(YEAR(?inscribed) AS ?inscriptionYear) }
+  OPTIONAL { ?item wdt:P1435 ?typeItem. ?typeItem rdfs:label ?type. FILTER(LANG(?type) = "en") }
+  OPTIONAL { ?item wdt:P1813 ?description. FILTER(LANG(?description) = "en") }
+  OPTIONAL { ?item wdt:P856 ?officialUrl. }
+  
+  FILTER (?inscriptionYear >= 1978)
+  
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
 }
-ORDER BY ?siteLabel
+ORDER BY ?inscriptionYear
+LIMIT 100
 `;
         
         // Encode the query and make the request
@@ -158,12 +151,6 @@ ORDER BY ?siteLabel
     }
 }
 
-// Parse WKT Point coordinates
-function parseWKTPoint(wkt) {
-    const m = wkt?.match(/Point\(([-\d.]+) ([-\d.]+)\)/);
-    return m ? { lon: Number(m[1]), lat: Number(m[2]) } : null;
-}
-
 // Process the sites data
 function processSitesData(data) {
     console.log('Processing sites ', data);
@@ -178,11 +165,10 @@ function processSitesData(data) {
         // Parse coordinates from Point format
         let latitude = 0;
         let longitude = 0;
-        const coord = parseWKTPoint(item.coord?.value);
         
-        if (coord) {
-            latitude = coord.lat;
-            longitude = coord.lon;
+        if (item.latitude?.value && item.longitude?.value) {
+            latitude = parseFloat(item.latitude.value);
+            longitude = parseFloat(item.longitude.value);
         }
         
         // Get inscription year (default to 1978 if not available)
@@ -192,15 +178,21 @@ function processSitesData(data) {
         }
         
         return {
-            id: item.site?.value ? item.site.value.split('/').pop() : 'unknown',
-            name: item.siteLabel?.value || 'Unknown Site',
-            country: 'Unknown', // Will be updated later
+            id: item.item?.value ? item.item.value.split('/').pop() : 'unknown',
+            name: item.itemLabel?.value || 'Unknown Site',
+            country: item.country?.value || 'Unknown',
             latitude: latitude,
             longitude: longitude,
             inscriptionYear: inscriptionYear,
-            type: 'cultural', // Default for now
-            description: item.siteDescription?.value || 'UNESCO World Heritage Site',
-            officialUrl: item.unescoUrl?.value || ''
+            type: (() => {
+                const t = item.type?.value?.toLowerCase() || '';
+                if (t.includes('cultural')) return 'cultural';
+                if (t.includes('natural')) return 'natural';
+                if (t.includes('mixed')) return 'mixed';
+                return 'cultural';
+            })(),
+            description: item.description?.value || 'UNESCO World Heritage Site',
+            officialUrl: item.officialUrl?.value || ''
         };
     }).filter(site => 
         site.latitude && 
@@ -341,15 +333,20 @@ let map;
 let markers = [];
 
 function initMap() {
-    console.log('Initializing map with OpenStreetMap tiles...');
+    console.log('Initializing map with MapTiler Dataviz tiles...');
     
     // Create map
     map = L.map('map').setView([20, 0], 2);
     
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
-        maxZoom: 19
+    // Add MapTiler Dataviz tile layer
+    // IMPORTANT: Replace 'YOUR_MAPTILER_API_KEY' with your actual MapTiler API key
+    L.tileLayer('https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=YOUR_MAPTILER_API_KEY', {
+        attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
+        tileSize: 512,
+        zoomOffset: -1,
+        minZoom: 1,
+        maxZoom: 18,
+        crossOrigin: true
     }).addTo(map);
     
     // Update map with sites
@@ -400,7 +397,7 @@ function updateMap() {
         
         markers.push(marker);
     });
-
+    
     // Fit bounds if we have sites
     if (state.filteredSites.length > 0) {
         const group = L.featureGroup(markers);

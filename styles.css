@@ -456,15 +456,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
     border: none !important;
 }
 .leaflet-container {
-    background: #ffffff;
+    background: var(--background);
 }
 
 .leaflet-popup-content-wrapper {
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     border: none;
-    background: #ffffff;
-    color: #252525;
+    background: var(--background);
+    color: var(--foreground);
 }
 
 .leaflet-popup-content {
@@ -472,7 +472,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 .leaflet-popup-tip {
-    background: #ffffff;
+    background: var(--background);
     border: none;
     box-shadow: none;
 }

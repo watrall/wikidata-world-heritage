@@ -52,6 +52,7 @@ async function init() {
 
     // Apply initial controls visibility
     updateControlsVisibility();
+    updateSliderBubble();
 
     // Load sites
     await loadSites();
@@ -383,8 +384,9 @@ function updateSliderBubble() {
     const sliderWidth = slider.offsetWidth;
     const bubbleWidth = bubble.offsetWidth;
     const halfBubble = bubbleWidth / 2;
-    let leftPx = boundedPercent * sliderWidth;
-    leftPx = Math.min(Math.max(leftPx, halfBubble), sliderWidth - halfBubble);
+    const offsetLeft = slider.offsetLeft;
+    let leftPx = offsetLeft + boundedPercent * sliderWidth;
+    leftPx = Math.min(Math.max(leftPx, offsetLeft + halfBubble), offsetLeft + sliderWidth - halfBubble);
     bubble.style.left = `${leftPx}px`;
 }
 

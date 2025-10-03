@@ -175,7 +175,7 @@ function processSitesData(data) {
     console.log('Number of results:', data.results.bindings.length);
     
     state.sites = data.results.bindings.map(item => {
-        // Parse coordinates from WKT Point format
+        // Parse coordinates from Point format
         let latitude = 0;
         let longitude = 0;
         const coord = parseWKTPoint(item.coord?.value);
@@ -341,19 +341,15 @@ let map;
 let markers = [];
 
 function initMap() {
-    console.log('Initializing map with MapTiler Dataviz tiles...');
+    console.log('Initializing map with OpenStreetMap tiles...');
     
     // Create map
     map = L.map('map').setView([20, 0], 2);
     
-    // Add MapTiler Dataviz tile layer
-    L.tileLayer('https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=YOUR_MAPTILER_API_KEY', {
-        attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
-        tileSize: 512,
-        zoomOffset: -1,
-        minZoom: 1,
-        maxZoom: 18,
-        crossOrigin: true
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
+        maxZoom: 19
     }).addTo(map);
     
     // Update map with sites
@@ -375,7 +371,7 @@ function updateMap() {
         const marker = L.marker([site.latitude, site.longitude], { icon })
             .addTo(map)
             .bindPopup(`
-                <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     <h3 style="font-weight: bold; color: #000000; margin: 0 0 4px 0;">${site.name}</h3>
                     <p style="color: #000000; margin: 4px 0;"><strong>Country:</strong> ${site.country}</p>
                     <p style="color: #000000; margin: 4px 0;"><strong>Inscribed:</strong> ${site.inscriptionYear}</p>
@@ -404,7 +400,7 @@ function updateMap() {
         
         markers.push(marker);
     });
-    
+
     // Fit bounds if we have sites
     if (state.filteredSites.length > 0) {
         const group = L.featureGroup(markers);

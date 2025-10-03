@@ -1,11 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wikidata World Heritage Explorer</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="icon" href="/wikidata-world-heritage/favicon.ico" />
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; 
+            margin: 0; 
+            padding: 0;
+            overflow: hidden; 
+            background: #ffffff;
+            color: #252525;
+        }
+        #app { 
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #map { 
+            width: 100%;
+            height: 100%;
+        }
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1000;
+        }
+        .spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 2px solid #030213;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -54,7 +96,7 @@
                     
                     <div class="slider-container">
                         <div class="slider-label">
-                            <span>Year Range: <span id="min-year">1978</span> – <span id="current-year">2024</span></span>
+                            <span>Year Range: 1978 – <span id="current-year">2024</span></span>
                             <span class="year-display" id="selected-year">2024</span>
                         </div>
                         <input type="range" id="year-slider" class="slider" min="1978" max="2024" value="2024">

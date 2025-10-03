@@ -28,10 +28,14 @@ const elements = {
 const mapState = {
     map: null,
     markers: [],
-    shouldFitBounds: true,
+    forceFitBounds: true,
     userHasAdjusted: false,
     isAutoFitting: false
 };
+
+function requestFitBounds() {
+    mapState.forceFitBounds = true;
+}
 
 // Initialize the app
 async function init() {
@@ -72,7 +76,7 @@ function setupEventListeners() {
             btn.classList.add('active');
             // Update selected type
             state.selectedType = btn.dataset.type;
-            mapState.shouldFitBounds = true;
+            requestFitBounds();
             // Filter and update
             filterSites();
             updateMap();
@@ -194,7 +198,7 @@ function processSitesData(sites) {
 
     state.loading = false;
     hideLoading();
-    mapState.shouldFitBounds = true;
+    requestFitBounds();
     mapState.userHasAdjusted = false;
 }
 
@@ -396,14 +400,14 @@ function initMap() {
     mapState.map.on('movestart', () => {
         if (!mapState.isAutoFitting) {
             mapState.userHasAdjusted = true;
-            mapState.shouldFitBounds = false;
+            mapState.forceFitBounds = false;
         }
     });
 
     mapState.map.on('zoomstart', () => {
         if (!mapState.isAutoFitting) {
             mapState.userHasAdjusted = true;
-            mapState.shouldFitBounds = false;
+            mapState.forceFitBounds = false;
         }
     });
     
@@ -468,7 +472,7 @@ function updateMap() {
     });
     
     // Fit bounds if we have sites
-    const shouldAutoFit = mapState.markers.length > 0 && mapState.shouldFitBounds;
+    const shouldAutoFit = mapState.markers.length > 0 && mapState.forceFitBounds;
     if (shouldAutoFit) {
         mapState.isAutoFitting = true;
         mapState.map.once('moveend', () => {
@@ -476,8 +480,8 @@ function updateMap() {
         });
         const group = L.featureGroup(mapState.markers);
         mapState.map.fitBounds(group.getBounds(), { padding: [50, 50] });
-        mapState.shouldFitBounds = false;
     }
+    mapState.forceFitBounds = false;
 }
 
 // Create custom icons

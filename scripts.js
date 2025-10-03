@@ -22,7 +22,8 @@ const elements = {
     filterButtons: document.querySelectorAll('.filter-btn'),
     toggleControls: document.getElementById('toggle-controls'),
     controlsPanel: document.getElementById('controls'),
-    expandedControls: document.getElementById('expanded-controls')
+    expandedControls: document.getElementById('expanded-controls'),
+    sliderBubble: document.getElementById('slider-bubble')
 };
 
 const mapState = {
@@ -68,6 +69,11 @@ function setupEventListeners() {
         updateProgress();
         filterSites();
         updateMap();
+        updateSliderBubble();
+    });
+
+    window.addEventListener('resize', () => {
+        requestAnimationFrame(updateSliderBubble);
     });
     
     // Filter buttons
@@ -339,7 +345,8 @@ function filterSites() {
         return yearMatch && typeMatch;
     });
     
-    elements.siteCount.innerHTML = `Showing <strong>${state.filteredSites.length}</strong> sites${state.selectedYear < new Date().getFullYear() ? ` up to ${state.selectedYear}` : ''}`;
+    elements.siteCount.innerHTML = `Showing <strong>${state.filteredSites.length}</strong> UNESCO World Heritage Sites${state.selectedYear < new Date().getFullYear() ? ` up to ${state.selectedYear}` : ''}`;
+    updateSliderBubble();
 }
 
 // Update progress percentage
@@ -349,6 +356,36 @@ function updateProgress() {
     const percent = Math.round(((state.selectedYear - minYear) / (maxYear - minYear)) * 100);
     elements.progressPercent.textContent = `${percent}% through time`;
     elements.totalSites.textContent = `${state.sites.length} total sites`;
+}
+
+function updateSliderBubble() {
+    const bubble = elements.sliderBubble;
+    const slider = elements.yearSlider;
+    if (!bubble || !slider) return;
+
+    const year = state.selectedYear;
+    const count = state.sites.filter(site =>
+        site.inscriptionYear === year &&
+        (state.selectedType === 'all' || site.type === state.selectedType)
+    ).length;
+
+    bubble.textContent = `${year} | ${count} ${count === 1 ? 'Site' : 'Sites'}`;
+
+    const min = Number(slider.min);
+    const max = Number(slider.max);
+    if (Number.isNaN(min) || Number.isNaN(max) || max === min) {
+        bubble.style.left = '0%';
+        return;
+    }
+
+    const percent = (year - min) / (max - min);
+    const boundedPercent = Math.min(Math.max(percent, 0), 1);
+    const sliderWidth = slider.offsetWidth;
+    const bubbleWidth = bubble.offsetWidth;
+    const halfBubble = bubbleWidth / 2;
+    let leftPx = boundedPercent * sliderWidth;
+    leftPx = Math.min(Math.max(leftPx, halfBubble), sliderWidth - halfBubble);
+    bubble.style.left = `${leftPx}px`;
 }
 
 // Update site counts

@@ -241,6 +241,8 @@ input {
 
 .slider-container {
     margin-top: 1rem;
+    position: relative;
+    padding-top: 1.75rem;
 }
 
 .slider-label {
@@ -270,6 +272,24 @@ input {
     background: var(--primary);
     cursor: pointer;
     border: none;
+}
+
+.slider-bubble {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translate(-50%, -110%);
+    background: rgba(3, 2, 19, 0.9);
+    color: var(--primary-foreground);
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-family: monospace;
+    font-weight: var(--font-weight-medium);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px -10px var(--shadow-color);
+    opacity: 0.9;
 }
 
 .year-display {

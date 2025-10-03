@@ -2,6 +2,8 @@
 const state = {
     sites: [],
     filteredSites: [],
+    minYear: 1978,
+    maxYear: new Date().getFullYear(),
     selectedYear: new Date().getFullYear(),
     selectedType: 'all',
     loading: true,
@@ -14,16 +16,16 @@ const elements = {
     loading: document.getElementById('loading'),
     map: document.getElementById('map'),
     siteCount: document.getElementById('site-count'),
-    selectedYear: document.getElementById('selected-year'),
     yearSlider: document.getElementById('year-slider'),
-    currentYear: document.getElementById('current-year'),
     totalSites: document.getElementById('total-sites'),
     progressPercent: document.getElementById('progress-percent'),
     filterButtons: document.querySelectorAll('.filter-btn'),
     toggleControls: document.getElementById('toggle-controls'),
     controlsPanel: document.getElementById('controls'),
     expandedControls: document.getElementById('expanded-controls'),
-    sliderBubble: document.getElementById('slider-bubble')
+    sliderBubble: document.getElementById('slider-bubble'),
+    sliderStart: document.getElementById('slider-start'),
+    sliderEnd: document.getElementById('slider-end')
 };
 
 const mapState = {
@@ -42,10 +44,12 @@ function requestFitBounds() {
 async function init() {
     console.log('Initializing app...');
     
-    // Set current year
-    elements.currentYear.textContent = state.selectedYear;
-    elements.yearSlider.value = state.selectedYear;
-    elements.yearSlider.max = state.selectedYear;
+    if (elements.yearSlider) {
+        elements.yearSlider.min = state.minYear;
+        elements.yearSlider.max = state.selectedYear;
+        elements.yearSlider.value = state.selectedYear;
+    }
+    updateSliderEnds();
     
     // Add event listeners
     setupEventListeners();
@@ -66,7 +70,6 @@ function setupEventListeners() {
     // Year slider
     elements.yearSlider.addEventListener('input', (e) => {
         state.selectedYear = parseInt(e.target.value);
-        elements.selectedYear.textContent = state.selectedYear;
         updateProgress();
         filterSites();
         updateMap();
@@ -201,6 +204,24 @@ function processSitesData(sites) {
 
     console.log('Processed valid sites:', state.sites.length);
 
+    const inscriptionYears = state.sites
+        .map(site => site.inscriptionYear)
+        .filter(year => Number.isFinite(year));
+
+    if (inscriptionYears.length > 0) {
+        state.minYear = Math.min(state.minYear, ...inscriptionYears);
+        state.maxYear = Math.max(...inscriptionYears);
+        state.selectedYear = state.maxYear;
+    }
+
+    if (elements.yearSlider) {
+        elements.yearSlider.min = state.minYear;
+        elements.yearSlider.max = state.maxYear;
+        elements.yearSlider.value = state.selectedYear;
+    }
+
+    updateSliderEnds();
+
     // Filter sites initially
     filterSites();
     updateCounts();
@@ -210,6 +231,7 @@ function processSitesData(sites) {
     hideLoading();
     requestFitBounds();
     mapState.userHasAdjusted = false;
+    updateSliderBubble();
 }
 
 function resolveSiteType(site, criteria = []) {
@@ -352,9 +374,10 @@ function filterSites() {
 
 // Update progress percentage
 function updateProgress() {
-    const minYear = 1978;
-    const maxYear = new Date().getFullYear();
-    const percent = Math.round(((state.selectedYear - minYear) / (maxYear - minYear)) * 100);
+    const range = state.maxYear - state.minYear;
+    const percent = range > 0
+        ? Math.round(((state.selectedYear - state.minYear) / range) * 100)
+        : 100;
     elements.progressPercent.textContent = `${percent}% through time`;
     elements.totalSites.textContent = `${state.sites.length} total sites`;
 }
@@ -385,12 +408,25 @@ function updateSliderBubble() {
     const containerRect = slider.parentElement.getBoundingClientRect();
     const sliderWidth = sliderRect.width;
     const bubbleWidth = bubble.offsetWidth;
+    const bubbleHeight = bubble.offsetHeight;
     const halfBubble = bubbleWidth / 2;
     const containerLeft = sliderRect.left - containerRect.left;
 
     let leftPx = containerLeft + boundedPercent * sliderWidth;
     leftPx = Math.min(Math.max(leftPx, containerLeft + halfBubble), containerLeft + sliderWidth - halfBubble);
     bubble.style.left = `${leftPx}px`;
+
+    const topPx = (sliderRect.top - containerRect.top) - bubbleHeight - 5;
+    bubble.style.top = `${topPx}px`;
+}
+
+function updateSliderEnds() {
+    if (elements.sliderStart) {
+        elements.sliderStart.textContent = state.minYear;
+    }
+    if (elements.sliderEnd) {
+        elements.sliderEnd.textContent = state.maxYear;
+    }
 }
 
 // Update site counts

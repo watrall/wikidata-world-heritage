@@ -16,7 +16,6 @@ const elements = {
     siteCount: document.getElementById('site-count'),
     selectedYear: document.getElementById('selected-year'),
     yearSlider: document.getElementById('year-slider'),
-    minYear: document.getElementById('min-year'),
     currentYear: document.getElementById('current-year'),
     totalSites: document.getElementById('total-sites'),
     progressPercent: document.getElementById('progress-percent'),
@@ -34,21 +33,15 @@ async function init() {
     elements.currentYear.textContent = state.selectedYear;
     elements.yearSlider.value = state.selectedYear;
     elements.yearSlider.max = state.selectedYear;
-    elements.minYear.textContent = elements.yearSlider.min;
-    elements.selectedYear.textContent = state.selectedYear;
     
     // Add event listeners
     setupEventListeners();
     
     // Load sites
-    try {
-        await loadSites();
-        
-        // Initialize map
-        initMap();
-    } catch (error) {
-        console.error('Initialization failed:', error);
-    }
+    await loadSites();
+    
+    // Initialize map
+    initMap();
 }
 
 // Set up event listeners
@@ -95,7 +88,7 @@ function updateControlsVisibility() {
     }
 }
 
-// Load UNESCO sites from DigitalOcean Function with improved Wikidata query
+// Load UNESCO sites from DigitalOcean Function
 async function loadSites() {
     try {
         console.log('Loading sites from DigitalOcean Function...');
@@ -103,102 +96,48 @@ async function loadSites() {
         // Use your actual DigitalOcean function URL
         const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
         
-        // Improved SPARQL query for real UNESCO World Heritage Sites data
+        // Updated SPARQL query from your Postman test
         const query = `
-SELECT ?site ?siteName ?category ?countryName ?lat ?lon ?description ?unescoURL ?inscriptionYear
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX schema: <http://schema.org/>
+
+SELECT ?site ?siteLabel ?siteDescription ?coord ?inscriptionYear ?unescoId ?unescoUrl
 WHERE {
-  {
-    SELECT ?site
-           (SAMPLE(?labelEn) AS ?siteLabelEn)
-           (SAMPLE(?labelAny) AS ?siteLabelAny)
-           (SAMPLE(?countryLabel) AS ?countryName)
-           (SAMPLE(?descriptionEn) AS ?description)
-           (SAMPLE(?latValue) AS ?lat)
-           (SAMPLE(?lonValue) AS ?lon)
-           (SAMPLE(?whsIdVal) AS ?whsId)
-           (SAMPLE(?unescoUrlRaw) AS ?unescoURLRaw)
-           (SAMPLE(?yearValue) AS ?inscriptionYear)
-    WHERE {
-      ?site wdt:P1435 wd:Q9259 .
-      FILTER NOT EXISTS {
-        ?site p:P1435 ?st .
-        ?st ps:P1435 wd:Q9259 ; pq:P582 ?end .
-      }
-      OPTIONAL { ?site rdfs:label ?labelEn FILTER(LANG(?labelEn) = "en") }
-      OPTIONAL { ?site rdfs:label ?labelAny }
-      OPTIONAL {
-        ?site wdt:P17 ?country .
-        ?country rdfs:label ?countryLabel FILTER(LANG(?countryLabel) = "en")
-      }
-      OPTIONAL { ?site schema:description ?descriptionEn FILTER(LANG(?descriptionEn) = "en") }
-      OPTIONAL {
-        ?site wdt:P625 ?coords .
-        BIND(geof:latitude(?coords) AS ?latValue)
-        BIND(geof:longitude(?coords) AS ?lonValue)
-      }
-      OPTIONAL { ?site wdt:P757 ?whsIdVal }
-      OPTIONAL {
-        ?site wdt:P973 ?unescoUrlRaw .
-        FILTER(CONTAINS(STR(?unescoUrlRaw), "whc.unesco.org/en/list/"))
-      }
-      OPTIONAL {
-        ?site p:P1435 ?whsStatement .
-        ?whsStatement ps:P1435 wd:Q9259 .
-        OPTIONAL { ?whsStatement pq:P580 ?inscriptionDate }
-      }
-      BIND(IF(BOUND(?inscriptionDate), YEAR(?inscriptionDate), 0) AS ?yearValue)
+  ?site wdt:P1435 wd:Q9259.
+  OPTIONAL { ?site wdt:P625 ?coord. }
+  OPTIONAL {
+    ?site p:P1435 ?whsStmt.
+    ?whsStmt ps:P1435 wd:Q9259.
+    OPTIONAL {
+      ?whsStmt pq:P580 ?inscribed.
+      BIND(YEAR(?inscribed) AS ?inscriptionYear)
     }
-    GROUP BY ?site
   }
-
-  BIND(COALESCE(?siteLabelEn, ?siteLabelAny) AS ?siteName)
-
-  BIND(
-    IF(
-      EXISTS {
-        ?site wdt:P2614 ?criterionC .
-        ?criterionC wdt:P1545 ?numberC .
-        FILTER(?numberC >= 1 && ?numberC <= 6)
-      } &&
-      EXISTS {
-        ?site wdt:P2614 ?criterionN .
-        ?criterionN wdt:P1545 ?numberN .
-        FILTER(?numberN >= 7 && ?numberN <= 10)
-      },
-      "mixed",
-      IF(
-        EXISTS {
-          ?site wdt:P2614 ?criterionNOnly .
-          ?criterionNOnly wdt:P1545 ?numberNOnly .
-          FILTER(?numberNOnly >= 7 && ?numberNOnly <= 10)
-        },
-        "natural",
-        "cultural"
-      )
-    ) AS ?category
-  )
-
-  BIND(
-    IF(
-      BOUND(?whsId),
-      CONCAT("https://whc.unesco.org/en/list/", STR(?whsId)),
-      COALESCE(STR(?unescoURLRaw), "")
-    ) AS ?unescoURL
-  )
+  OPTIONAL {
+    ?site wdt:P757 ?unescoId.
+    BIND(IRI(CONCAT("https://whc.unesco.org/en/list/", STR(?unescoId))) AS ?unescoUrl)
+  }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
 }
-ORDER BY ?siteName
+ORDER BY ?siteLabel
 `;
         
-        // Send the query through the DigitalOcean function
-        console.log('Fetching from DigitalOcean function...');
+        // Encode the query and make the request
+        const encodedQuery = encodeURIComponent(query);
+        const fullUrl = `${functionUrl}?query=${encodedQuery}`;
         
-        const response = await fetch(functionUrl, {
-            method: 'POST',
+        console.log('Fetching from function:', fullUrl);
+        
+        const response = await fetch(fullUrl, {
             headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ query })
+                'Accept': 'application/sparql-results+json'
+            }
         });
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -214,10 +153,15 @@ ORDER BY ?siteName
         
     } catch (error) {
         console.error('Error loading sites from function:', error);
-        state.loading = false;
-        showError('Unable to load data from Wikidata. Please try again.');
-        throw error;
+        // Fallback to test data
+        loadTestSites();
     }
+}
+
+// Parse WKT Point coordinates
+function parseWKTPoint(wkt) {
+    const m = wkt?.match(/Point\(([-\d.]+) ([-\d.]+)\)/);
+    return m ? { lon: Number(m[1]), lat: Number(m[2]) } : null;
 }
 
 // Process the sites data
@@ -231,34 +175,32 @@ function processSitesData(data) {
     console.log('Number of results:', data.results.bindings.length);
     
     state.sites = data.results.bindings.map(item => {
-        // Parse coordinates
+        // Parse coordinates from WKT Point format
         let latitude = 0;
         let longitude = 0;
+        const coord = parseWKTPoint(item.coord?.value);
         
-        if (item.lat?.value && item.lon?.value) {
-            latitude = parseFloat(item.lat.value);
-            longitude = parseFloat(item.lon.value);
+        if (coord) {
+            latitude = coord.lat;
+            longitude = coord.lon;
         }
-
-        const rawYear = item.inscriptionYear?.value ? parseInt(item.inscriptionYear.value, 10) : NaN;
-        const inscriptionYear = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : 1978;
         
-        // Determine type from category or default to cultural
-        let type = 'cultural';
-        if (item.category?.value) {
-            type = item.category.value.toLowerCase();
+        // Get inscription year (default to 1978 if not available)
+        let inscriptionYear = 1978;
+        if (item.inscriptionYear?.value) {
+            inscriptionYear = parseInt(item.inscriptionYear.value);
         }
         
         return {
             id: item.site?.value ? item.site.value.split('/').pop() : 'unknown',
-            name: item.siteName?.value || 'Unknown Site',
-            country: item.countryName?.value || 'Unknown',
+            name: item.siteLabel?.value || 'Unknown Site',
+            country: 'Unknown', // Will be updated later
             latitude: latitude,
             longitude: longitude,
-            inscriptionYear,
-            type: type,
-            description: item.description?.value || 'UNESCO World Heritage Site',
-            officialUrl: item.unescoURL?.value || ''
+            inscriptionYear: inscriptionYear,
+            type: 'cultural', // Default for now
+            description: item.siteDescription?.value || 'UNESCO World Heritage Site',
+            officialUrl: item.unescoUrl?.value || ''
         };
     }).filter(site => 
         site.latitude && 
@@ -270,17 +212,7 @@ function processSitesData(data) {
         site.longitude >= -180 && 
         site.longitude <= 180
     );
-
-    const availableYears = state.sites
-        .map(site => site.inscriptionYear)
-        .filter(year => Number.isFinite(year) && year > 0);
-
-    if (availableYears.length) {
-        const minYear = Math.min(...availableYears);
-        elements.yearSlider.min = minYear;
-        elements.minYear.textContent = minYear;
-    }
-
+    
     console.log('Processed valid sites:', state.sites.length);
     
     // Filter sites initially
@@ -354,13 +286,9 @@ function filterSites() {
 
 // Update progress percentage
 function updateProgress() {
-    const minAttr = parseInt(elements.yearSlider.min, 10);
-    const maxAttr = parseInt(elements.yearSlider.max, 10);
-    const minYear = Number.isFinite(minAttr) ? minAttr : 1978;
-    const maxYear = Number.isFinite(maxAttr) ? maxAttr : new Date().getFullYear();
-    const clampedSelected = Math.max(minYear, Math.min(state.selectedYear, maxYear));
-    const range = Math.max(1, maxYear - minYear);
-    const percent = Math.round(((clampedSelected - minYear) / range) * 100);
+    const minYear = 1978;
+    const maxYear = new Date().getFullYear();
+    const percent = Math.round(((state.selectedYear - minYear) / (maxYear - minYear)) * 100);
     elements.progressPercent.textContent = `${percent}% through time`;
     elements.totalSites.textContent = `${state.sites.length} total sites`;
 }
@@ -387,7 +315,6 @@ function hideLoading() {
 
 // Show error
 function showError(message) {
-    elements.loading.style.display = 'flex';
     elements.loading.innerHTML = `
         <div style="text-align: center; max-width: 500px; padding: 1rem;">
             <p style="color: #d4183d; margin-bottom: 1rem;">${message}</p>
@@ -419,8 +346,8 @@ function initMap() {
     // Create map
     map = L.map('map').setView([20, 0], 2);
     
-    // Add MapTiler Dataviz tile layer with your API key
-    L.tileLayer('https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=hwdzAUpEiLf9NbzhMhnP', {
+    // Add MapTiler Dataviz tile layer
+    L.tileLayer('https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=YOUR_MAPTILER_API_KEY', {
         attribution: '&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Data from <a href="https://www.wikidata.org/">Wikidata</a>',
         tileSize: 512,
         zoomOffset: -1,
@@ -448,10 +375,10 @@ function updateMap() {
         const marker = L.marker([site.latitude, site.longitude], { icon })
             .addTo(map)
             .bindPopup(`
-                <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                     <h3 style="font-weight: bold; color: #000000; margin: 0 0 4px 0;">${site.name}</h3>
                     <p style="color: #000000; margin: 4px 0;"><strong>Country:</strong> ${site.country}</p>
-                    <p style="color: #000000; margin: 4px 0;"><strong>Type:</strong> ${site.type.charAt(0).toUpperCase() + site.type.slice(1)}</p>
+                    <p style="color: #000000; margin: 4px 0;"><strong>Inscribed:</strong> ${site.inscriptionYear}</p>
                     <p style="color: #000000; margin: 8px 0;">${site.description}</p>
                     <a 
                         href="${site.officialUrl}" 
@@ -463,7 +390,7 @@ function updateMap() {
                     </a>
                 </div>
             `);
-        
+
         marker.on('mouseover', function() {
             marker.bindTooltip(`<strong>${site.name}</strong>`, {
                 permanent: false,
@@ -472,7 +399,7 @@ function updateMap() {
                 offset: [0, -10],
             }).openTooltip();
         });
-        
+
         marker.on('mouseout', () => marker.closeTooltip());
         
         markers.push(marker);

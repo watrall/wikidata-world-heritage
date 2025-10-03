@@ -3,7 +3,7 @@ const state = {
     sites: [],
     filteredSites: [],
     minYear: 1978,
-    maxYear: new Date().getFullYear(),
+    maxYear: Math.max(new Date().getFullYear(), 2025),
     selectedYear: new Date().getFullYear(),
     selectedType: 'all',
     loading: true,
@@ -46,7 +46,7 @@ async function init() {
     
     if (elements.yearSlider) {
         elements.yearSlider.min = state.minYear;
-        elements.yearSlider.max = state.selectedYear;
+        elements.yearSlider.max = state.maxYear;
         elements.yearSlider.value = state.selectedYear;
     }
     updateSliderEnds();
@@ -209,9 +209,13 @@ function processSitesData(sites) {
         .filter(year => Number.isFinite(year));
 
     if (inscriptionYears.length > 0) {
-        state.minYear = Math.min(state.minYear, ...inscriptionYears);
-        state.maxYear = Math.max(...inscriptionYears);
-        state.selectedYear = state.maxYear;
+        const computedMin = Math.min(...inscriptionYears);
+        const computedMax = Math.max(...inscriptionYears);
+        const DEFAULT_MIN_YEAR = 1978;
+        const DEFAULT_MAX_YEAR = 2025;
+        state.minYear = DEFAULT_MIN_YEAR;
+        state.maxYear = Math.max(DEFAULT_MAX_YEAR, computedMax);
+        state.selectedYear = Math.max(computedMax, state.minYear);
     }
 
     if (elements.yearSlider) {
@@ -416,7 +420,12 @@ function updateSliderBubble() {
     leftPx = Math.min(Math.max(leftPx, containerLeft + halfBubble), containerLeft + sliderWidth - halfBubble);
     bubble.style.left = `${leftPx}px`;
 
-    const topPx = (sliderRect.top - containerRect.top) - bubbleHeight - 5;
+    const sliderStyles = window.getComputedStyle(slider);
+    const trackHeight = parseFloat(sliderStyles.getPropertyValue('height')) || sliderRect.height;
+    const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const thumbHeight = 1.4 * rootFontSize;
+    const thumbTopOffset = (thumbHeight - trackHeight) / 2;
+    const topPx = (sliderRect.top - containerRect.top) - thumbTopOffset - bubbleHeight - 5;
     bubble.style.top = `${topPx}px`;
 }
 

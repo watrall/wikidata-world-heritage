@@ -158,22 +158,32 @@ input {
 }
 
 .toggle-btn {
-    background: transparent;
-    border: none;
+    background: rgba(3, 2, 19, 0.08);
+    border: 1px solid var(--border);
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 0.25rem;
+    padding: 0.4rem;
+    border-radius: 0.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--primary);
+    box-shadow: 0 4px 12px -8px var(--shadow-color);
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .toggle-btn:hover {
-    background: rgba(3, 2, 19, 0.08);
+    background: rgba(3, 2, 19, 0.16);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px -10px var(--shadow-color);
 }
 
 .toggle-btn svg {
     transition: transform 0.3s ease;
+}
+
+.toggle-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
 }
 
 .collapsed .toggle-btn svg {

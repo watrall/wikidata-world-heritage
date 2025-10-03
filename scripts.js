@@ -6,7 +6,7 @@ const state = {
     selectedType: 'all',
     loading: true,
     error: null,
-    controlsCollapsed: false
+    controlsCollapsed: true
 };
 
 // DOM elements
@@ -48,7 +48,10 @@ async function init() {
     
     // Add event listeners
     setupEventListeners();
-    
+
+    // Apply initial controls visibility
+    updateControlsVisibility();
+
     // Load sites
     await loadSites();
     

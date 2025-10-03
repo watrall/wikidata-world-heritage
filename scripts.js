@@ -108,16 +108,24 @@ async function loadSites() {
         const data = await response.json();
         console.log('Function returned:', data);
 
-        if (!Array.isArray(data.sites)) {
-            throw new Error('Invalid data structure returned from function');
+        if (Array.isArray(data.sites)) {
+            processSitesData(data.sites);
+            return;
         }
 
-        processSitesData(data.sites);
+        if (data.results?.bindings) {
+            console.warn('Received legacy SPARQL bindings – normalizing on the client.');
+            const normalizedSites = normalizeBindings(data.results.bindings);
+            processSitesData(normalizedSites);
+            return;
+        }
+
+        throw new Error('Invalid data structure returned from function');
 
     } catch (error) {
         console.error('Error loading sites from function:', error);
-        // Fallback to test data
-        loadTestSites();
+        showError('Unable to load data from Wikidata at the moment. Please try again later.');
+        state.loading = false;
     }
 }
 
@@ -133,24 +141,29 @@ function processSitesData(sites) {
 
     state.sites = sites.map(site => {
         const id = site.site ? site.site.split('/').pop() : 'unknown';
-        const coords = site.coord || null;
-        const latitude = coords?.lat ?? null;
-        const longitude = coords?.lon ?? null;
+        const coords = site.coord || site.coordinate || null;
+        const latitude = getLatitude(coords, site);
+        const longitude = getLongitude(coords, site);
 
-        const inscriptionYear = Number.isFinite(site.inscriptionYear)
-            ? site.inscriptionYear
-            : (site.inscriptionYear ? parseInt(site.inscriptionYear, 10) : null);
+        const inscriptionYearValue = parseInscriptionYear(site.inscriptionYear);
+        const criteria = Array.isArray(site.criteria) ? site.criteria : [];
+        const type = resolveSiteType(site, criteria);
+        const countries = Array.isArray(site.countries) && site.countries.length > 0
+            ? site.countries
+            : (site.country ? [site.country] : []);
 
         return {
             id,
-            name: site.label || 'Unknown Site',
-            country: site.country || 'Unknown',
+            name: site.label || site.name || 'Unknown Site',
+            country: countries.length > 0 ? countries.join(', ') : 'Unknown',
+            countries,
             latitude,
             longitude,
-            inscriptionYear: inscriptionYear && !Number.isNaN(inscriptionYear) ? inscriptionYear : 1978,
-            type: inferSiteType(site),
+            inscriptionYear: inscriptionYearValue ?? 1978,
+            type,
+            criteria,
             description: site.description || 'UNESCO World Heritage Site',
-            officialUrl: site.unescoUrl || ''
+            officialUrl: site.unescoUrl || site.officialUrl || ''
         };
     }).filter(site => 
         site.latitude != null &&
@@ -174,14 +187,81 @@ function processSitesData(sites) {
     hideLoading();
 }
 
-function inferSiteType(site) {
-    const description = site.description?.toLowerCase?.() ?? '';
+function resolveSiteType(site, criteria = []) {
+    const normalized = typeof site.type === 'string' ? site.type.toLowerCase() : '';
+    if (['cultural', 'natural', 'mixed'].includes(normalized)) {
+        return normalized;
+    }
 
+    const hasCultural = criteria.some(c => /\b(i|ii|iii|iv|v|vi)\b/i.test(c));
+    const hasNatural = criteria.some(c => /\b(vii|viii|ix|x)\b/i.test(c));
+
+    if (hasCultural && hasNatural) return 'mixed';
+    if (hasNatural) return 'natural';
+    if (hasCultural) return 'cultural';
+
+    const description = site.description?.toLowerCase?.() ?? '';
     if (description.includes('mixed')) return 'mixed';
     if (description.includes('natural')) return 'natural';
     if (description.includes('cultural')) return 'cultural';
 
     return 'cultural';
+}
+
+function getLatitude(coords, site) {
+    if (coords && typeof coords.lat === 'number') return coords.lat;
+    if (coords && typeof coords.latitude === 'number') return coords.latitude;
+    if (typeof site.latitude === 'number') return site.latitude;
+    if (typeof site.latitude === 'string') return parseFloat(site.latitude);
+    if (typeof site.lat === 'string' || typeof site.lat === 'number') return parseFloat(site.lat);
+    return null;
+}
+
+function getLongitude(coords, site) {
+    if (coords && typeof coords.lon === 'number') return coords.lon;
+    if (coords && typeof coords.longitude === 'number') return coords.longitude;
+    if (typeof site.longitude === 'number') return site.longitude;
+    if (typeof site.longitude === 'string') return parseFloat(site.longitude);
+    if (typeof site.lon === 'string' || typeof site.lon === 'number') return parseFloat(site.lon);
+    return null;
+}
+
+function parseInscriptionYear(value) {
+    if (value == null) return null;
+    if (Number.isFinite(value)) return value;
+    const parsed = parseInt(value, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+function parseLegacyWKT(value) {
+    if (!value) return null;
+    const match = value.match(/Point\\(([-\\d\\.]+) ([-\\d\\.]+)\\)/);
+    return match ? { lat: parseFloat(match[2]), lon: parseFloat(match[1]) } : null;
+}
+
+function normalizeBindings(bindings) {
+    return bindings.map(item => {
+        const wkt = item.coordinate?.value || item.coord?.value;
+        const coord = parseLegacyWKT(wkt);
+        const latitude = coord?.lat ?? (item.latitude?.value ? parseFloat(item.latitude.value) : null);
+        const longitude = coord?.lon ?? (item.longitude?.value ? parseFloat(item.longitude.value) : null);
+
+        return {
+            site: item.item?.value ?? null,
+            label: item.itemLabel?.value ?? null,
+            description: item.description?.value ?? null,
+            country: item.country?.value ?? null,
+            countries: item.country?.value ? [item.country.value] : [],
+            coord: coord ?? (latitude != null && longitude != null ? { lat: latitude, lon: longitude } : null),
+            latitude,
+            longitude,
+            inscriptionYear: item.inscriptionYear?.value ?? null,
+            unescoId: item.unescoId?.value ?? null,
+            unescoUrl: item.officialUrl?.value ?? null,
+            criteria: [],
+            type: item.type?.value ?? null
+        };
+    });
 }
 
 // Test data fallback

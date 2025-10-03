@@ -12,12 +12,22 @@
     --text-lg: 1.125rem;
     --text-xl: 1.25rem;
     --text-2xl: 1.5rem;
+    --background: #f7f8ff;
+    --surface: rgba(255, 255, 255, 0.95);
+    --foreground: #030213;
+    --muted: #f5f5f7;
+    --muted-foreground: #717182;
+    --border: rgba(3, 2, 19, 0.1);
+    --accent: #e9ebef;
+    --primary: #030213;
+    --primary-foreground: #ffffff;
+    --shadow-color: rgba(15, 23, 42, 0.25);
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #ffffff;
-    color: #252525;
+    background: var(--background);
+    color: var(--foreground);
     font-size: var(--font-size);
     line-height: 1.5;
     overflow: hidden;
@@ -76,18 +86,37 @@ input {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(247, 248, 255, 0.9);
     z-index: 1000;
 }
 
 .spinner {
     width: 2rem;
     height: 2rem;
-    border: 2px solid #030213;
+    border: 2px solid var(--primary);
     border-top-color: transparent;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 1rem;
+}
+
+#loading p {
+    color: var(--muted-foreground);
+}
+
+#loading button {
+    padding: 0.75rem 1.25rem;
+    background: var(--primary);
+    border: none;
+    color: var(--primary-foreground);
+    border-radius: 0.75rem;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+#loading button:hover {
+    opacity: 0.9;
 }
 
 @keyframes spin {
@@ -104,11 +133,11 @@ input {
 }
 
 .control-panel {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
+    background: var(--surface);
+    backdrop-filter: blur(10px);
     border-radius: 0.75rem;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px -8px var(--shadow-color);
+    border: 1px solid var(--border);
     padding: 1rem;
     pointer-events: auto;
     margin-bottom: 1rem;
@@ -124,12 +153,12 @@ input {
 .header h1 {
     font-size: 1.125rem;
     font-weight: 500;
-    color: #252525;
+    color: var(--foreground);
     margin: 0;
 }
 
 .toggle-btn {
-    background: none;
+    background: transparent;
     border: none;
     cursor: pointer;
     padding: 0.25rem;
@@ -140,7 +169,7 @@ input {
 }
 
 .toggle-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(3, 2, 19, 0.08);
 }
 
 .toggle-btn svg {
@@ -153,7 +182,7 @@ input {
 
 .header p {
     font-size: 0.875rem;
-    color: #717182;
+    color: var(--muted-foreground);
     margin: 0;
 }
 
@@ -165,7 +194,8 @@ input {
 .collapsed #expanded-controls {
     max-height: 0;
     opacity: 0;
-    padding: 0;
+    padding-top: 0;
+    padding-bottom: 0;
     margin: 0;
 }
 
@@ -177,24 +207,26 @@ input {
 }
 
 .filter-btn {
-    background: #f5f5f7;
-    border: 1px solid #e2e2e5;
-    border-radius: 0.5rem;
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
     padding: 0.75rem 0.5rem;
     text-align: center;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     font-size: 0.75rem;
+    font-weight: var(--font-weight-medium);
 }
 
 .filter-btn:hover {
-    background: #e9ebef;
+    background: var(--accent);
 }
 
 .filter-btn.active {
-    border-color: #030213;
-    background: #030213;
+    border-color: var(--primary);
+    background: var(--primary);
     color: white;
+    box-shadow: 0 6px 18px -6px var(--shadow-color);
 }
 
 .slider-container {
@@ -205,18 +237,18 @@ input {
     display: flex;
     justify-content: space-between;
     font-size: 0.875rem;
-    color: #717182;
+    color: var(--muted-foreground);
     margin-bottom: 0.5rem;
 }
 
 .slider {
     width: 100%;
     height: 0.5rem;
-    border-radius: 0.25rem;
-    background: #e2e2e5;
+    border-radius: 9999px;
+    background: var(--accent);
     outline: none;
     -webkit-appearance: none;
-        appearance: none;
+    appearance: none;
 }
 
 .slider::-webkit-slider-thumb {
@@ -225,18 +257,20 @@ input {
     width: 1.25rem;
     height: 1.25rem;
     border-radius: 50%;
-    background: #030213;
+    background: var(--primary);
     cursor: pointer;
+    border: none;
+    box-shadow: 0 4px 12px rgba(3, 2, 19, 0.3);
 }
 
 .year-display {
     text-align: right;
     font-family: monospace;
     font-size: 0.875rem;
-    background: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    border-radius: 0.25rem;
-    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
 }
 
 /* Essential Leaflet CSS */

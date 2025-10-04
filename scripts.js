@@ -52,22 +52,22 @@ const markerConfigs = {
     cultural: {
         color: '#7C3AED',
         label: 'Cultural',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 10h16l-8-6-8 6Zm2 2v8h3v-4h6v4h3v-8H6Zm-2 8h16v2H4v-2Z"/></svg>`
+        icon: '<i class="fa-solid fa-gopuram" aria-hidden="true"></i>'
     },
     natural: {
         color: '#16A34A',
         label: 'Natural',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2c-4.5 3-7 6.5-7 11 0 5.2 3.5 7.5 7 7.5s7-2.3 7-7.5c0-4.5-2.5-8-7-11Zm0 16.5c-2.2 0-4-1.4-4-4 0-2.6 1.6-4.9 4-6.9 2.4 2 4 4.3 4 6.9 0 2.6-1.8 4-4 4Z"/></svg>`
+        icon: '<i class="fa-solid fa-leaf" aria-hidden="true"></i>'
     },
     mixed: {
         color: '#F97316',
         label: 'Mixed',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 5a7 7 0 11-7 7m7-3a3 3 0 110 6 1 1 0 000 2 5 5 0 100-10"/></svg>`
+        icon: '<i class="fa-solid fa-spiral" aria-hidden="true"></i>'
     },
     all: {
         color: '#0EA5E9',
         label: 'All Sites',
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20Zm0 18a8 8 0 110-16 8 8 0 010 16Zm0-16c-1.8 0-3.5 2.6-3.9 6h7.8c-.4-3.4-2.1-6-3.9-6Zm-3.9 8c.4 3.4 2.1 6 3.9 6s3.5-2.6 3.9-6H8.1zm9 0h2.7a7.96 7.96 0 01-2.2 4.9 13.3 13.3 0 001.6-4.9zm0-2c-.3-1.8-.9-3.4-1.6-4.9A7.96 7.96 0 0119.8 10H17.1zm-10.2 0H4.2a7.96 7.96 0 012.2-4.9 13.3 13.3 0 00-1.6 4.9zm0 2c.3 1.8.9 3.4 1.6 4.9A7.96 7.96 0 014.2 12h2.7z"/></svg>`
+        icon: '<i class="fa-solid fa-earth-americas" aria-hidden="true"></i>'
     }
 };
 
@@ -604,7 +604,7 @@ function createIcon(type) {
     const config = markerConfigs[type] || markerConfigs.cultural;
     const markerHtml = `
         <div class="heritage-marker" style="background-color:${config.color};">
-            <span class="heritage-marker-icon">${config.svg}</span>
+            <span class="heritage-marker-icon">${config.icon}</span>
         </div>
     `;
 

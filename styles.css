@@ -733,12 +733,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #ffffff;
+    font-size: 1.15rem;
 }
 
-.heritage-marker-icon svg {
+.heritage-marker-icon svg,
+.heritage-marker-icon i {
     width: 22px;
     height: 22px;
-    color: #ffffff;
+    display: block;
+}
+
+.heritage-marker-icon i {
+    line-height: 1;
 }
 
 .leaflet-container {

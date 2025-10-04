@@ -48,6 +48,30 @@ function escapeHtml(value = '') {
         .replace(/'/g, '&#039;');
 }
 
+function normalizeImages(images) {
+    if (!images) return [];
+    if (Array.isArray(images)) {
+        return images.map(String).map(str => str.trim()).filter(Boolean).slice(0, 5);
+    }
+    if (typeof images === 'string') {
+        if (images.includes('|')) {
+            return images.split('|').map(part => part.trim()).filter(Boolean).slice(0, 5);
+        }
+        if (images.startsWith('[')) {
+            try {
+                const parsed = JSON.parse(images);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(String).map(str => str.trim()).filter(Boolean).slice(0, 5);
+                }
+            } catch (error) {
+                console.warn('Unable to parse images JSON string', error);
+            }
+        }
+        return [images.trim()].filter(Boolean).slice(0, 5);
+    }
+    return [];
+}
+
 const markerConfigs = {
     cultural: {
         color: '#DC2626',
@@ -207,6 +231,7 @@ function processSitesData(sites) {
         const countries = Array.isArray(site.countries) && site.countries.length > 0
             ? site.countries
             : (site.country ? [site.country] : []);
+        const images = normalizeImages(site.images || site.imageList || site.media || null);
 
         return {
             id,
@@ -219,7 +244,8 @@ function processSitesData(sites) {
             type,
             criteria,
             description: site.description || 'UNESCO World Heritage Site',
-            officialUrl: site.unescoUrl || site.officialUrl || ''
+            officialUrl: site.unescoUrl || site.officialUrl || '',
+            images
         };
     }).filter(site => 
         site.latitude != null &&
@@ -554,22 +580,15 @@ function updateMap() {
         const icon = createIcon(site.type);
 
         const config = markerConfigs[site.type] || markerConfigs.cultural;
-        const popupHtml = `
-            <div class="popup-card">
-                <div class="popup-header">
-                    <h3>${escapeHtml(site.name)}</h3>
-                    <span class="popup-badge" style="--badge-color:${config.color}">${config.label}</span>
-                </div>
-                <p class="popup-meta"><span>Country</span>${escapeHtml(site.country)}</p>
-                <p class="popup-meta"><span>Inscribed</span>${escapeHtml(site.inscriptionYear ?? 'Unknown')}</p>
-                <p class="popup-description">${escapeHtml(site.description)}</p>
-                ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
-            </div>
-        `;
+        const popupHtml = buildPopupContent(site, config);
 
         const marker = L.marker([site.latitude, site.longitude], { icon })
             .addTo(mapState.map)
             .bindPopup(popupHtml);
+
+        marker.on('popupopen', (event) => {
+            initializePopupMedia(event.popup.getElement());
+        });
 
         marker.on('mouseover', function() {
             marker.bindTooltip(`<strong>${site.name}</strong>`, {
@@ -613,6 +632,77 @@ function createIcon(type) {
         iconAnchor: [21, 42],
         popupAnchor: [0, -32],
         className: 'custom-heritage-marker'
+    });
+}
+
+function buildPopupContent(site, config) {
+    const hasImages = Array.isArray(site.images) && site.images.length > 0;
+    const slides = hasImages
+        ? site.images.slice(0, 5)
+        : [];
+
+    const mediaSection = hasImages ? `
+        <div class="popup-media" data-active-index="0">
+            <div class="popup-media-track">
+                ${slides.map((url, index) => `
+                    <div class="popup-media-slide${index === 0 ? ' active' : ''}">
+                        <img src="${escapeHtml(url)}" alt="${escapeHtml(site.name)} image ${index + 1}" loading="lazy" />
+                    </div>
+                `).join('')}
+            </div>
+            ${slides.length > 1 ? `
+                <div class="popup-media-dots" role="tablist" aria-label="${escapeHtml(site.name)} images">
+                    ${slides.map((_, index) => `
+                        <button type="button" class="popup-media-dot${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="Show image ${index + 1}"></button>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    ` : '';
+
+    const cardClasses = `popup-card${hasImages ? ' has-media' : ''}`;
+
+    return `
+        <div class="${cardClasses}" data-site-id="${escapeHtml(site.id)}">
+            ${mediaSection}
+            <div class="popup-body">
+                <div class="popup-header">
+                    <h3>${escapeHtml(site.name)}</h3>
+                    <span class="popup-badge" style="--badge-color:${config.color}">${config.label}</span>
+                </div>
+                <div class="popup-details">
+                    <p class="popup-meta"><span>Country</span>${escapeHtml(site.country)}</p>
+                    <p class="popup-meta"><span>Inscribed</span>${escapeHtml(site.inscriptionYear ?? 'Unknown')}</p>
+                    <p class="popup-description">${escapeHtml(site.description)}</p>
+                </div>
+                ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
+            </div>
+        </div>
+    `;
+}
+
+function initializePopupMedia(root) {
+    if (!root) return;
+    const mediaContainers = root.querySelectorAll('.popup-media');
+    mediaContainers.forEach(container => {
+        const slides = Array.from(container.querySelectorAll('.popup-media-slide'));
+        const dots = Array.from(container.querySelectorAll('.popup-media-dot'));
+        if (slides.length <= 1) return;
+
+        dots.forEach(dot => {
+            if (dot.dataset.listenerAttached === 'true') return;
+            dot.addEventListener('click', () => {
+                const index = Number.parseInt(dot.dataset.index, 10) || 0;
+                slides.forEach((slide, slideIndex) => {
+                    slide.classList.toggle('active', slideIndex === index);
+                });
+                dots.forEach((button, dotIndex) => {
+                    button.classList.toggle('active', dotIndex === index);
+                });
+                container.dataset.activeIndex = String(index);
+            }, { once: false });
+            dot.dataset.listenerAttached = 'true';
+        });
     });
 }
 

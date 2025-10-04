@@ -52,7 +52,7 @@ const markerConfigs = {
     cultural: {
         color: '#7C3AED',
         label: 'Cultural',
-        icon: '<i class="fa-solid fa-gopuram" aria-hidden="true"></i>'
+        icon: '<i class="fa-solid fa-torii-gate" aria-hidden="true"></i>'
     },
     natural: {
         color: '#16A34A',
@@ -62,7 +62,7 @@ const markerConfigs = {
     mixed: {
         color: '#F97316',
         label: 'Mixed',
-        icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 5a7 7 0 1 0 7 7m-7-3a3 3 0 1 0 3 3 1 1 0 0 1 0 2 5 5 0 1 1 0-10"/></svg>'
+        icon: '<i class="fa-solid fa-spiral" aria-hidden="true" data-fallback-icon="fa-hexagon-nodes"></i>'
     },
     all: {
         color: '#0EA5E9',
@@ -71,10 +71,32 @@ const markerConfigs = {
     }
 };
 
+function applyIconFallbacks(root = document) {
+    const icons = root.querySelectorAll('.fa-spiral[data-fallback-icon]');
+    if (!icons.length) return;
+
+    const missingCodes = new Set(['', 'normal', 'none', '\\f128', '\\f059']);
+
+    icons.forEach(icon => {
+        const computed = window.getComputedStyle(icon, '::before');
+        const fallback = icon.dataset.fallbackIcon;
+        if (!fallback) return;
+
+        const rawContent = computed?.content ?? '';
+        const normalized = rawContent.replace(/['"]/g, '').toLowerCase();
+
+        if (missingCodes.has(normalized)) {
+            icon.classList.remove('fa-spiral');
+            icon.classList.add(fallback);
+            icon.removeAttribute('data-fallback-icon');
+        }
+    });
+}
+
 // Initialize the app
 async function init() {
     console.log('Initializing app...');
-    
+
     if (elements.yearSlider) {
         elements.yearSlider.min = state.minYear;
         elements.yearSlider.max = state.maxYear;
@@ -94,6 +116,9 @@ async function init() {
     
     // Initialize map
     initMap();
+
+    // Ensure Font Awesome fallbacks for any missing icons
+    requestAnimationFrame(() => applyIconFallbacks());
 }
 
 // Set up event listeners
@@ -584,7 +609,15 @@ function updateMap() {
         
         mapState.markers.push(marker);
     });
-    
+
+    // Adjust any missing icons inside the map markers
+    requestAnimationFrame(() => {
+        const mapRoot = mapState.map?._container;
+        if (mapRoot) {
+            applyIconFallbacks(mapRoot);
+        }
+    });
+
     // Fit bounds if we have sites
     const shouldAutoFit = mapState.markers.length > 0 && mapState.forceFitBounds;
     if (shouldAutoFit) {

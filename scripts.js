@@ -18,7 +18,6 @@ const elements = {
     siteCount: document.getElementById('site-count'),
     yearSlider: document.getElementById('year-slider'),
     totalSites: document.getElementById('total-sites'),
-    progressPercent: document.getElementById('progress-percent'),
     filterButtons: document.querySelectorAll('.filter-btn'),
     toggleControls: document.getElementById('toggle-controls'),
     controlsPanel: document.getElementById('controls'),
@@ -39,6 +38,38 @@ const mapState = {
 function requestFitBounds() {
     mapState.forceFitBounds = true;
 }
+
+function escapeHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+const markerConfigs = {
+    cultural: {
+        color: '#7C3AED',
+        label: 'Cultural',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M4 10h16l-8-6-8 6Zm2 2v8h3v-4h6v4h3v-8H6Zm-2 8h16v2H4v-2Z"/></svg>`
+    },
+    natural: {
+        color: '#16A34A',
+        label: 'Natural',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2c-4.5 3-7 6.5-7 11 0 5.2 3.5 7.5 7 7.5s7-2.3 7-7.5c0-4.5-2.5-8-7-11Zm0 16.5c-2.2 0-4-1.4-4-4 0-2.6 1.6-4.9 4-6.9 2.4 2 4 4.3 4 6.9 0 2.6-1.8 4-4 4Z"/></svg>`
+    },
+    mixed: {
+        color: '#F97316',
+        label: 'Mixed',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 5a7 7 0 11-7 7m7-3a3 3 0 110 6 1 1 0 000 2 5 5 0 100-10"/></svg>`
+    },
+    all: {
+        color: '#0EA5E9',
+        label: 'All Sites',
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20Zm0 18a8 8 0 110-16 8 8 0 010 16Zm0-16c-1.8 0-3.5 2.6-3.9 6h7.8c-.4-3.4-2.1-6-3.9-6Zm-3.9 8c.4 3.4 2.1 6 3.9 6s3.5-2.6 3.9-6H8.1zm9 0h2.7a7.96 7.96 0 01-2.2 4.9 13.3 13.3 0 001.6-4.9zm0-2c-.3-1.8-.9-3.4-1.6-4.9A7.96 7.96 0 0119.8 10H17.1zm-10.2 0H4.2a7.96 7.96 0 012.2-4.9 13.3 13.3 0 00-1.6 4.9zm0 2c.3 1.8.9 3.4 1.6 4.9A7.96 7.96 0 014.2 12h2.7z"/></svg>`
+    }
+};
 
 // Initialize the app
 async function init() {
@@ -522,25 +553,24 @@ function updateMap() {
     // Add new markers
     state.filteredSites.forEach(site => {
         const icon = createIcon(site.type);
-        
+
+        const config = markerConfigs[site.type] || markerConfigs.cultural;
+        const popupHtml = `
+            <div class="popup-card">
+                <div class="popup-header">
+                    <h3>${escapeHtml(site.name)}</h3>
+                    <span class="popup-badge" style="--badge-color:${config.color}">${config.label}</span>
+                </div>
+                <p class="popup-meta"><span>Country</span>${escapeHtml(site.country)}</p>
+                <p class="popup-meta"><span>Inscribed</span>${escapeHtml(site.inscriptionYear ?? 'Unknown')}</p>
+                <p class="popup-description">${escapeHtml(site.description)}</p>
+                ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
+            </div>
+        `;
+
         const marker = L.marker([site.latitude, site.longitude], { icon })
             .addTo(mapState.map)
-            .bindPopup(`
-                <div style="padding: 8px; width: 288px; max-height: 320px; overflow-y: auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-size: 12px; line-height: 1.4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-                    <h3 style="font-weight: bold; color: #000000; margin: 0 0 4px 0;">${site.name}</h3>
-                    <p style="color: #000000; margin: 4px 0;"><strong>Country:</strong> ${site.country}</p>
-                    <p style="color: #000000; margin: 4px 0;"><strong>Inscribed:</strong> ${site.inscriptionYear}</p>
-                    <p style="color: #000000; margin: 8px 0;">${site.description}</p>
-                    <a 
-                        href="${site.officialUrl}" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        style="color: #10B981; text-decoration: underline; font-size: 11px;"
-                    >
-                        View on UNESCO →
-                    </a>
-                </div>
-            `);
+            .bindPopup(popupHtml);
 
         marker.on('mouseover', function() {
             marker.bindTooltip(`<strong>${site.name}</strong>`, {
@@ -571,28 +601,19 @@ function updateMap() {
 
 // Create custom icons
 function createIcon(type) {
-    const colors = {
-        cultural: '#8B5CF6', // violet
-        natural: '#10B981',  // emerald
-        mixed: '#F59E0B'     // amber
-    };
-    
-    const svgIcon = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42" fill="none">
-            <path d="M16 0L32 16V42H0V16L16 0Z" fill="${colors[type]}" stroke="#030213" stroke-width="1"/>
-            <circle cx="16" cy="20" r="4" fill="white"/>
-            ${type === 'cultural' ? '<path d="M14 24H18V28H14V24Z" fill="#030213"/>' : ''}
-            ${type === 'natural' ? '<path d="M14 24L16 20L18 24H14Z" fill="#030213"/>' : ''}
-            ${type === 'mixed' ? '<path d="M14 24L16 20L18 24H14Z M14 28H18V32H14V28Z" fill="#030213"/>' : ''}
-        </svg>
+    const config = markerConfigs[type] || markerConfigs.cultural;
+    const markerHtml = `
+        <div class="heritage-marker" style="background-color:${config.color};">
+            <span class="heritage-marker-icon">${config.svg}</span>
+        </div>
     `;
-    
+
     return L.divIcon({
-        html: svgIcon,
-        iconSize: [32, 42],
-        iconAnchor: [16, 42],
-        popupAnchor: [0, -42],
-        className: 'custom-heritage-marker',
+        html: markerHtml,
+        iconSize: [42, 42],
+        iconAnchor: [21, 42],
+        popupAnchor: [0, -32],
+        className: 'custom-heritage-marker'
     });
 }
 

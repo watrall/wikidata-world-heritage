@@ -302,6 +302,76 @@ input {
     pointer-events: none;
 }
 
+.popup-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 220px;
+    max-width: 280px;
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.popup-card h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: var(--font-weight-medium);
+    color: var(--foreground);
+}
+
+.popup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: var(--font-weight-medium);
+    background-color: color-mix(in srgb, var(--badge-color, #0EA5E9) 16%, #ffffff 84%);
+    border: 1px solid color-mix(in srgb, var(--badge-color, #0EA5E9) 30%, #ffffff 70%);
+    color: var(--badge-color, var(--foreground));
+}
+
+.popup-meta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.popup-meta span {
+    font-weight: var(--font-weight-medium);
+    color: var(--foreground);
+}
+
+.popup-description {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--muted-foreground);
+}
+
+.popup-link {
+    font-size: 0.8rem;
+    font-weight: var(--font-weight-medium);
+    color: var(--primary);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.popup-link:hover,
+.popup-link:focus {
+    text-decoration: underline;
+}
+
 /* Essential Leaflet CSS */
 .leaflet-pane,
 .leaflet-tile,
@@ -563,58 +633,112 @@ svg.leaflet-image-layer.leaflet-interactive path {
     background: none !important;
     border: none !important;
 }
+
+.heritage-marker {
+    width: 42px;
+    height: 42px;
+    border-radius: 9999px;
+    border: 3px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 14px 26px -16px rgba(15, 23, 42, 0.6);
+}
+
+.heritage-marker-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.heritage-marker-icon svg {
+    width: 22px;
+    height: 22px;
+    color: #ffffff;
+}
+
 .leaflet-container {
     background: var(--background);
 }
 
+.leaflet-popup {
+    margin-bottom: 16px;
+}
+
 .leaflet-popup-content-wrapper {
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border: none;
-    background: var(--background);
+    border-radius: 0.85rem;
+    box-shadow: 0 24px 48px -28px var(--shadow-color);
+    border: 1px solid var(--border);
+    background: var(--surface);
     color: var(--foreground);
 }
 
 .leaflet-popup-content {
-    margin: 16px;
+    margin: 0;
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
 }
 
 .leaflet-popup-tip {
-    background: var(--background);
+    background: var(--surface);
+    border: 1px solid transparent;
+    box-shadow: 0 10px 20px -16px var(--shadow-color);
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
     border: none;
-    box-shadow: none;
+    background: rgba(3, 2, 19, 0.08);
+    color: var(--muted-foreground);
+    font-size: 1rem;
+    line-height: 1.4rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+    background: rgba(3, 2, 19, 0.16);
+    color: var(--foreground);
+    outline: none;
 }
 
 .leaflet-control-attribution {
-    background: rgba(255, 255, 255, 0.8) !important;
+    background: rgba(255, 255, 255, 0.85) !important;
     backdrop-filter: blur(8px) !important;
-    border-radius: 6px !important;
+    border-radius: 8px !important;
     margin: 8px !important;
-    padding: 4px 8px !important;
+    padding: 4px 10px !important;
     font-size: 11px !important;
+    color: var(--muted-foreground) !important;
 }
 
 .leaflet-control-zoom {
     border: none !important;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
-    border-radius: 8px !important;
+    box-shadow: 0 10px 20px -16px rgba(15, 23, 42, 0.35) !important;
+    border-radius: 12px !important;
     overflow: hidden;
     margin: 8px !important;
+    backdrop-filter: blur(6px);
 }
 
 .leaflet-control-zoom a {
     background: rgba(255, 255, 255, 0.95) !important;
-    backdrop-filter: blur(8px) !important;
     border: none !important;
-    color: #374151 !important;
+    color: var(--foreground) !important;
     font-weight: 600 !important;
-    width: 36px !important;
-    height: 36px !important;
-    line-height: 36px !important;
+    width: 38px !important;
+    height: 38px !important;
+    line-height: 38px !important;
     transition: background-color 0.2s !important;
 }
 
 .leaflet-control-zoom a:hover {
     background: rgba(255, 255, 255, 1) !important;
-    color: #1f2937 !important;
+    color: var(--foreground) !important;
 }

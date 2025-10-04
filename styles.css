@@ -304,6 +304,7 @@ input {
     align-items: center;
     justify-content: center;
     line-height: 1;
+    fill: currentColor;
 }
 
 .filter-btn[data-type="all"] .filter-icon {
@@ -750,6 +751,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     align-items: center;
     justify-content: center;
     line-height: 1;
+    fill: currentColor;
 }
 
 .leaflet-container {

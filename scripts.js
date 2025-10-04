@@ -62,7 +62,7 @@ const markerConfigs = {
     mixed: {
         color: '#F97316',
         label: 'Mixed',
-        icon: '<i class="fa-solid fa-spiral" aria-hidden="true" data-fallback-icon="fa-hexagon-nodes"></i>'
+        icon: '<i class="fa-solid fa-hexagon-nodes" aria-hidden="true"></i>'
     },
     all: {
         color: '#0EA5E9',
@@ -70,28 +70,6 @@ const markerConfigs = {
         icon: '<i class="fa-solid fa-earth-americas" aria-hidden="true"></i>'
     }
 };
-
-function applyIconFallbacks(root = document) {
-    const icons = root.querySelectorAll('.fa-spiral[data-fallback-icon]');
-    if (!icons.length) return;
-
-    const missingCodes = new Set(['', 'normal', 'none', '\\f128', '\\f059']);
-
-    icons.forEach(icon => {
-        const computed = window.getComputedStyle(icon, '::before');
-        const fallback = icon.dataset.fallbackIcon;
-        if (!fallback) return;
-
-        const rawContent = computed?.content ?? '';
-        const normalized = rawContent.replace(/['"]/g, '').toLowerCase();
-
-        if (missingCodes.has(normalized)) {
-            icon.classList.remove('fa-spiral');
-            icon.classList.add(fallback);
-            icon.removeAttribute('data-fallback-icon');
-        }
-    });
-}
 
 // Initialize the app
 async function init() {
@@ -116,9 +94,6 @@ async function init() {
     
     // Initialize map
     initMap();
-
-    // Ensure Font Awesome fallbacks for any missing icons
-    requestAnimationFrame(() => applyIconFallbacks());
 }
 
 // Set up event listeners
@@ -608,14 +583,6 @@ function updateMap() {
         marker.on('mouseout', () => marker.closeTooltip());
         
         mapState.markers.push(marker);
-    });
-
-    // Adjust any missing icons inside the map markers
-    requestAnimationFrame(() => {
-        const mapRoot = mapState.map?._container;
-        if (mapRoot) {
-            applyIconFallbacks(mapRoot);
-        }
     });
 
     // Fit bounds if we have sites

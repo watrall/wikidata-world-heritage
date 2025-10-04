@@ -50,7 +50,7 @@ function escapeHtml(value = '') {
 
 const markerConfigs = {
     cultural: {
-        color: '#7C3AED',
+        color: '#DC2626',
         label: 'Cultural',
         icon: '<i class="fa-solid fa-torii-gate" aria-hidden="true"></i>'
     },

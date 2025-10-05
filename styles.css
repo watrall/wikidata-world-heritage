@@ -843,15 +843,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
     font-weight: var(--font-weight-medium);
 }
 
-.markers-dimmed .heritage-marker {
-    opacity: 0.85;
-    transition: opacity 0.18s ease-out;
-}
-
-.markers-dimmed .heritage-marker.is-active {
-    opacity: 1;
-}
-
 .heritage-marker {
     transform: scale(1);
     transition: transform 0.18s ease-out;

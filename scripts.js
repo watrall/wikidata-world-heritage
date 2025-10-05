@@ -597,35 +597,9 @@ function updateMap() {
                 className: 'tooltip-popup',
                 offset: [0, -46],
             }).openTooltip();
-
-            const mapContainer = mapState.map?.getContainer?.();
-            if (mapContainer) {
-                mapContainer.classList.add('markers-dimmed');
-            }
-
-            document.querySelectorAll('.heritage-marker.is-active').forEach(el => {
-                el.classList.remove('is-active');
-            });
-
-            const iconElement = marker.getElement();
-            if (iconElement) {
-                iconElement.classList.add('is-active');
-            }
         });
 
-        marker.on('mouseout', () => {
-            marker.closeTooltip();
-
-            const mapContainer = mapState.map?.getContainer?.();
-            if (mapContainer) {
-                mapContainer.classList.remove('markers-dimmed');
-            }
-
-            const iconElement = marker.getElement();
-            if (iconElement) {
-                iconElement.classList.remove('is-active');
-            }
-        });
+        marker.on('mouseout', () => marker.closeTooltip());
         
         mapState.markers.push(marker);
     });

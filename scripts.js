@@ -595,7 +595,7 @@ function updateMap() {
                 permanent: false,
                 direction: 'top',
                 className: 'tooltip-popup',
-                offset: [0, -34],
+                offset: [0, -42],
             }).openTooltip();
         });
 

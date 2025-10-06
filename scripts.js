@@ -107,8 +107,10 @@ function createClusterGroup() {
             const childMarkers = cluster.getAllChildMarkers();
             const count = cluster.getChildCount();
             const primaryColor = determineClusterColor(childMarkers);
+            const lightColor = lightenColor(primaryColor, 0.28);
+            const darkColor = darkenColor(primaryColor, 0.24);
             const html = `
-                <div class="cluster-marker" style="--cluster-color:${primaryColor};">
+                <div class="cluster-marker" style="--cluster-color:${primaryColor}; --cluster-color-light:${lightColor}; --cluster-color-dark:${darkColor};">
                     <span class="cluster-marker-count">${count.toLocaleString()}</span>
                 </div>
             `;
@@ -152,6 +154,49 @@ function determineClusterColor(markers) {
     }
 
     return markerConfigs.all.color;
+}
+
+function lightenColor(color, amount = 0.2) {
+    const rgb = hexToRgb(color);
+    if (!rgb) return color;
+    const r = Math.round(rgb.r + (255 - rgb.r) * amount);
+    const g = Math.round(rgb.g + (255 - rgb.g) * amount);
+    const b = Math.round(rgb.b + (255 - rgb.b) * amount);
+    return rgbToHex(r, g, b);
+}
+
+function darkenColor(color, amount = 0.2) {
+    const rgb = hexToRgb(color);
+    if (!rgb) return color;
+    const r = Math.round(rgb.r * (1 - amount));
+    const g = Math.round(rgb.g * (1 - amount));
+    const b = Math.round(rgb.b * (1 - amount));
+    return rgbToHex(r, g, b);
+}
+
+function hexToRgb(hex) {
+    if (typeof hex !== 'string') return null;
+    const normalized = hex.trim();
+    if (!/^#([\da-f]{3}|[\da-f]{6})$/i.test(normalized)) return null;
+    let value = normalized.slice(1);
+    if (value.length === 3) {
+        value = value.split('').map(char => char + char).join('');
+    }
+    const num = parseInt(value, 16);
+    return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+    };
+}
+
+function rgbToHex(r, g, b) {
+    const toHex = (value) => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function clamp(value, min = 0, max = 255) {
+    return Math.min(max, Math.max(min, value));
 }
 
 // Initialize the app

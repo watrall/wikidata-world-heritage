@@ -863,8 +863,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     );
     box-shadow:
         0 18px 40px -22px rgba(15, 23, 42, 0.55),
-        inset 0 0 0 2px color-mix(in srgb, var(--cluster-color, #0EA5E9) 55%, #ffffff 45%),
-        inset 0 12px 28px -18px rgba(255, 255, 255, 0.9);
+        inset 0 0 0 2px color-mix(in srgb, var(--cluster-color, #0EA5E9) 55%, #ffffff 45%);
     color: #ffffff;
     font-size: 0.95rem;
     font-weight: var(--font-weight-medium);
@@ -879,8 +878,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
     transform: scale(1.06);
     box-shadow:
         0 26px 48px -22px rgba(15, 23, 42, 0.6),
-        inset 0 0 0 2px color-mix(in srgb, var(--cluster-color, #0EA5E9) 45%, #ffffff 55%),
-        inset 0 14px 34px -18px rgba(255, 255, 255, 0.95);
+        inset 0 0 0 2px color-mix(in srgb, var(--cluster-color, #0EA5E9) 45%, #ffffff 55%);
 }
 
 .cluster-marker-count {
@@ -896,21 +894,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
     inset: -10px;
     border-radius: inherit;
     background: radial-gradient(circle,
-        color-mix(in srgb, var(--cluster-color, #0EA5E9) 30%, transparent) 0%,
-        color-mix(in srgb, var(--cluster-color, #0EA5E9) 15%, transparent) 52%,
-        transparent 76%
+        color-mix(in srgb, var(--cluster-color, #0EA5E9) 22%, transparent) 0%,
+        transparent 68%
     );
-    opacity: 0.45;
-    transform: scale(0.97);
-    transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+    opacity: 0.35;
+    transform: scale(0.95);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
     pointer-events: none;
     z-index: -1;
 }
 
 .custom-cluster-marker:hover .cluster-marker::after,
 .custom-cluster-marker:focus-visible .cluster-marker::after {
-    opacity: 0.65;
-    transform: scale(1.03);
+    opacity: 0.5;
+    transform: scale(1.01);
 }
 
 .marker-cluster-small,

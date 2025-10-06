@@ -107,8 +107,8 @@ function createClusterGroup() {
             const childMarkers = cluster.getAllChildMarkers();
             const count = cluster.getChildCount();
             const primaryColor = determineClusterColor(childMarkers);
-            const lightColor = lightenColor(primaryColor, 0.28);
-            const darkColor = darkenColor(primaryColor, 0.24);
+            const lightColor = lightenColor(primaryColor, 0.18);
+            const darkColor = darkenColor(primaryColor, 0.2);
             const html = `
                 <div class="cluster-marker" style="--cluster-color:${primaryColor}; --cluster-color-light:${lightColor}; --cluster-color-dark:${darkColor};">
                     <span class="cluster-marker-count">${count.toLocaleString()}</span>

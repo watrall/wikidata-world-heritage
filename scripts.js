@@ -27,7 +27,7 @@ const elements = {
     sliderBubble: document.getElementById('slider-bubble'),
     sliderStart: document.getElementById('slider-start'),
     sliderEnd: document.getElementById('slider-end'),
-    searchBar: document.getElementById('map-search'),
+    searchBar: document.getElementById('search-form'),
     searchForm: document.getElementById('search-form'),
     searchInput: document.getElementById('search-input'),
     searchTags: document.getElementById('search-tags'),

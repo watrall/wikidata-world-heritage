@@ -19,25 +19,25 @@
             </div>
         </div>
 
-        <div id="map-search" class="map-search" role="search">
-            <form id="search-form" class="map-search-form" autocomplete="off">
-                <div class="search-field">
-                    <div id="search-tags" class="search-tags" role="list" aria-live="polite"></div>
-                    <input
-                        type="text"
-                        id="search-input"
-                        class="search-input"
-                        placeholder="Search sites, countries, keywords"
-                        aria-label="Search sites, countries, keywords"
-                        spellcheck="false"
-                    />
-                </div>
+        <form id="search-form" class="map-search" role="search" autocomplete="off">
+            <div class="search-field">
                 <button type="submit" id="search-submit" class="search-submit" aria-label="Apply search">
                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                 </button>
-            </form>
-            <button type="button" id="search-clear" class="search-clear" aria-label="Clear search terms" disabled>Clear</button>
-        </div>
+                <div id="search-tags" class="search-tags" role="list" aria-live="polite"></div>
+                <input
+                    type="text"
+                    id="search-input"
+                    class="search-input"
+                    placeholder="Search sites, countries, keywords"
+                    aria-label="Search sites, countries, keywords"
+                    spellcheck="false"
+                />
+                <button type="button" id="search-clear" class="search-clear" aria-label="Clear search terms" disabled>
+                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                </button>
+            </div>
+        </form>
         
         <div id="map"></div>
         

@@ -309,18 +309,16 @@ function setupSearchEvents() {
 
     elements.searchForm.addEventListener('submit', (event) => {
         event.preventDefault();
-        commitSearchInput();
-        applySearchFilter();
+        commitSearchInput({ apply: true });
     });
 
     elements.searchInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
-            commitSearchInput();
-            applySearchFilter();
+            commitSearchInput({ apply: true });
         } else if (event.key === ',' || event.key === 'Comma') {
             event.preventDefault();
-            commitSearchInput();
+            commitSearchInput({ apply: true });
         } else if (event.key === 'Backspace' && !event.target.value && state.searchTerms.length > 0) {
             event.preventDefault();
             removeSearchTerm(state.searchTerms.length - 1, { apply: true });
@@ -328,7 +326,7 @@ function setupSearchEvents() {
     });
 
     elements.searchInput.addEventListener('blur', () => {
-        commitSearchInput();
+        commitSearchInput({ apply: true });
     });
 
     elements.searchTags.addEventListener('click', (event) => {
@@ -352,10 +350,18 @@ function setupSearchEvents() {
     renderSearchTerms();
 }
 
-function commitSearchInput() {
-    if (!elements.searchInput) return false;
+function commitSearchInput({ apply = false } = {}) {
+    if (!elements.searchInput) {
+        return false;
+    }
+
     const rawValue = elements.searchInput.value;
-    if (!rawValue) return false;
+    if (!rawValue) {
+        if (apply) {
+            applySearchFilter();
+        }
+        return false;
+    }
 
     const parts = rawValue.split(',').map(part => part.trim()).filter(Boolean);
     let added = false;
@@ -371,6 +377,10 @@ function commitSearchInput() {
 
     if (added) {
         renderSearchTerms();
+    }
+
+    if (apply) {
+        applySearchFilter();
     }
 
     return added;

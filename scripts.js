@@ -30,6 +30,7 @@ const elements = {
 const mapState = {
     map: null,
     markers: [],
+    clusterGroup: null,
     forceFitBounds: true,
     userHasAdjusted: false,
     isAutoFitting: false
@@ -94,6 +95,64 @@ const markerConfigs = {
         icon: '<i class="fa-solid fa-earth-americas" aria-hidden="true"></i>'
     }
 };
+
+function createClusterGroup() {
+    return L.markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        spiderfyDistanceMultiplier: 1.2,
+        disableClusteringAtZoom: 7,
+        maxClusterRadius: 60,
+        iconCreateFunction: (cluster) => {
+            const childMarkers = cluster.getAllChildMarkers();
+            const count = cluster.getChildCount();
+            const primaryColor = determineClusterColor(childMarkers);
+            const html = `
+                <div class="cluster-marker" style="--cluster-color:${primaryColor};">
+                    <span class="cluster-marker-count">${count.toLocaleString()}</span>
+                </div>
+            `;
+
+            return L.divIcon({
+                html,
+                className: 'custom-cluster-marker marker-cluster marker-cluster-neutral',
+                iconSize: [48, 48],
+                iconAnchor: [24, 24]
+            });
+        }
+    });
+}
+
+function determineClusterColor(markers) {
+    if (!Array.isArray(markers) || markers.length === 0) {
+        return markerConfigs.all.color;
+    }
+
+    const counts = {
+        cultural: 0,
+        natural: 0,
+        mixed: 0
+    };
+
+    markers.forEach(marker => {
+        const type = marker.options?.siteType;
+        if (type && counts.hasOwnProperty(type)) {
+            counts[type] += 1;
+        }
+    });
+
+    const entries = Object.entries(counts).filter(([, value]) => value > 0);
+    if (entries.length === 1 && entries[0][1] === markers.length) {
+        return markerConfigs[entries[0][0]].color;
+    }
+
+    if (entries.length > 0) {
+        entries.sort((a, b) => b[1] - a[1]);
+        return markerConfigs[entries[0][0]].color;
+    }
+
+    return markerConfigs.all.color;
+}
 
 // Initialize the app
 async function init() {
@@ -563,6 +622,9 @@ function initMap() {
         updateWhenZooming: false
     }).addTo(mapState.map);
     
+    mapState.clusterGroup = createClusterGroup();
+    mapState.map.addLayer(mapState.clusterGroup);
+    
     // Update map with sites
     updateMap();
 }
@@ -571,8 +633,12 @@ function initMap() {
 function updateMap() {
     if (!mapState.map) return;
     
-    // Clear existing markers
-    mapState.markers.forEach(marker => mapState.map.removeLayer(marker));
+    if (!mapState.clusterGroup) {
+        mapState.clusterGroup = createClusterGroup();
+        mapState.map.addLayer(mapState.clusterGroup);
+    }
+
+    mapState.clusterGroup.clearLayers();
     mapState.markers = [];
     
     // Add new markers
@@ -582,9 +648,10 @@ function updateMap() {
         const config = markerConfigs[site.type] || markerConfigs.cultural;
         const popupHtml = buildPopupContent(site, config);
 
-        const marker = L.marker([site.latitude, site.longitude], { icon })
-            .addTo(mapState.map)
-            .bindPopup(popupHtml);
+        const marker = L.marker([site.latitude, site.longitude], {
+            icon,
+            siteType: site.type
+        }).bindPopup(popupHtml);
 
         marker.on('popupopen', (event) => {
             initializePopupMedia(event.popup.getElement());
@@ -602,17 +669,21 @@ function updateMap() {
         marker.on('mouseout', () => marker.closeTooltip());
         
         mapState.markers.push(marker);
+        mapState.clusterGroup.addLayer(marker);
     });
 
     // Fit bounds if we have sites
-    const shouldAutoFit = mapState.markers.length > 0 && mapState.forceFitBounds;
+    const hasMarkers = mapState.clusterGroup.getLayers().length > 0;
+    const shouldAutoFit = hasMarkers && mapState.forceFitBounds;
     if (shouldAutoFit) {
         mapState.isAutoFitting = true;
         mapState.map.once('moveend', () => {
             mapState.isAutoFitting = false;
         });
-        const group = L.featureGroup(mapState.markers);
-        mapState.map.fitBounds(group.getBounds(), { padding: [50, 50] });
+        const bounds = mapState.clusterGroup.getBounds();
+        if (bounds.isValid()) {
+            mapState.map.fitBounds(bounds, { padding: [50, 50] });
+        }
     }
     mapState.forceFitBounds = false;
 }

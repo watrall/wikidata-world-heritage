@@ -90,14 +90,51 @@ input {
     z-index: 1000;
 }
 
-.spinner {
-    width: 2rem;
-    height: 2rem;
-    border: 2px solid var(--primary);
-    border-top-color: transparent;
+.loader {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    position: relative;
+    animation: loader-rotate 1s linear infinite;
     margin: 0 auto 1rem;
+}
+
+.loader::before,
+.loader::after {
+    content: '';
+    box-sizing: border-box;
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2.5px solid #ffffff;
+    animation: loader-prix-clip 2s linear infinite;
+}
+
+.loader::before {
+    border-color: color-mix(in srgb, var(--primary, #030213) 88%, #ffffff 12%);
+    opacity: 0.85;
+}
+
+.loader::after {
+    border-color: color-mix(in srgb, var(--primary, #030213) 40%, var(--surface, #ffffff) 60%);
+    animation:
+        loader-prix-clip 2s linear infinite,
+        loader-rotate 0.5s linear infinite reverse;
+    inset: 6px;
+    border-width: 2.5px;
+}
+
+@keyframes loader-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes loader-prix-clip {
+    0%   { clip-path: polygon(50% 50%, 0 0, 0 0, 0 0, 0 0, 0 0); }
+    25%  { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 0, 100% 0, 100% 0); }
+    50%  { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 100% 100%, 100% 100%); }
+    75%  { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 100%); }
+    100% { clip-path: polygon(50% 50%, 0 0, 100% 0, 100% 100%, 0 100%, 0 0); }
 }
 
 #loading p {
@@ -117,10 +154,6 @@ input {
 
 #loading button:hover {
     opacity: 0.9;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
 }
 
 #controls {

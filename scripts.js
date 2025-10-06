@@ -8,7 +8,9 @@ const state = {
     selectedType: 'all',
     loading: true,
     error: null,
-    controlsCollapsed: true
+    controlsCollapsed: true,
+    searchTerms: [],
+    activeSearchTerms: []
 };
 
 // DOM elements
@@ -24,7 +26,13 @@ const elements = {
     expandedControls: document.getElementById('expanded-controls'),
     sliderBubble: document.getElementById('slider-bubble'),
     sliderStart: document.getElementById('slider-start'),
-    sliderEnd: document.getElementById('slider-end')
+    sliderEnd: document.getElementById('slider-end'),
+    searchBar: document.getElementById('map-search'),
+    searchForm: document.getElementById('search-form'),
+    searchInput: document.getElementById('search-input'),
+    searchTags: document.getElementById('search-tags'),
+    searchSubmit: document.getElementById('search-submit'),
+    searchClear: document.getElementById('search-clear')
 };
 
 const mapState = {
@@ -49,6 +57,17 @@ function escapeHtml(value = '') {
         .replace(/'/g, '&#039;');
 }
 
+function normalizeSearchValue(value) {
+    if (value == null) return '';
+    let normalized = String(value).toLowerCase();
+    try {
+        normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    } catch (error) {
+        // Some environments may not support String.prototype.normalize; fallback to lowercase only
+    }
+    return normalized;
+}
+
 function normalizeImages(images) {
     if (!images) return [];
     if (Array.isArray(images)) {
@@ -71,6 +90,25 @@ function normalizeImages(images) {
         return [images.trim()].filter(Boolean).slice(0, 5);
     }
     return [];
+}
+
+function buildSiteSearchText(site) {
+    const fragments = [];
+    if (site.name) fragments.push(site.name);
+    if (site.country) fragments.push(site.country);
+    if (Array.isArray(site.countries) && site.countries.length) fragments.push(site.countries.join(' '));
+    if (site.description) fragments.push(site.description);
+    if (Array.isArray(site.criteria) && site.criteria.length) fragments.push(site.criteria.join(' '));
+    if (site.type) fragments.push(site.type);
+    if (site.inscriptionYear) fragments.push(site.inscriptionYear);
+    if (site.unescoId) fragments.push(site.unescoId);
+    if (site.id) fragments.push(site.id);
+    if (site.officialUrl) fragments.push(site.officialUrl);
+
+    return fragments
+        .filter(Boolean)
+        .map(fragment => normalizeSearchValue(fragment))
+        .join(' ');
 }
 
 const markerConfigs = {
@@ -260,6 +298,172 @@ function setupEventListeners() {
         state.controlsCollapsed = !state.controlsCollapsed;
         updateControlsVisibility();
     });
+
+    setupSearchEvents();
+}
+
+function setupSearchEvents() {
+    if (!elements.searchForm || !elements.searchInput || !elements.searchTags) {
+        return;
+    }
+
+    elements.searchForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        commitSearchInput();
+        applySearchFilter();
+    });
+
+    elements.searchInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            commitSearchInput();
+            applySearchFilter();
+        } else if (event.key === ',' || event.key === 'Comma') {
+            event.preventDefault();
+            commitSearchInput();
+        } else if (event.key === 'Backspace' && !event.target.value && state.searchTerms.length > 0) {
+            event.preventDefault();
+            removeSearchTerm(state.searchTerms.length - 1, { apply: true });
+        }
+    });
+
+    elements.searchInput.addEventListener('blur', () => {
+        commitSearchInput();
+    });
+
+    elements.searchTags.addEventListener('click', (event) => {
+        const button = event.target.closest('.search-tag-remove');
+        if (!button) return;
+        const index = Number.parseInt(button.dataset.index, 10);
+        if (Number.isInteger(index)) {
+            removeSearchTerm(index, { apply: true });
+        }
+    });
+
+    if (elements.searchClear) {
+        elements.searchClear.addEventListener('click', () => {
+            if (!state.searchTerms.length && !state.activeSearchTerms.length && !(elements.searchInput?.value?.trim())) {
+                return;
+            }
+            clearSearchTerms();
+        });
+    }
+
+    renderSearchTerms();
+}
+
+function commitSearchInput() {
+    if (!elements.searchInput) return false;
+    const rawValue = elements.searchInput.value;
+    if (!rawValue) return false;
+
+    const parts = rawValue.split(',').map(part => part.trim()).filter(Boolean);
+    let added = false;
+    parts.forEach(part => {
+        if (addSearchTerm(part)) {
+            added = true;
+        }
+    });
+
+    if (parts.length > 0) {
+        elements.searchInput.value = '';
+    }
+
+    if (added) {
+        renderSearchTerms();
+    }
+
+    return added;
+}
+
+function addSearchTerm(raw) {
+    if (!raw) return false;
+    const trimmed = raw.trim();
+    if (!trimmed) return false;
+    const normalized = normalizeSearchValue(trimmed);
+    if (state.searchTerms.some(term => term.normalized === normalized)) {
+        return false;
+    }
+    state.searchTerms.push({ raw: trimmed, normalized });
+    return true;
+}
+
+function removeSearchTerm(index, { apply = false } = {}) {
+    if (index < 0 || index >= state.searchTerms.length) return;
+    state.searchTerms.splice(index, 1);
+    renderSearchTerms();
+    if (apply) {
+        applySearchFilter();
+    }
+}
+
+function clearSearchTerms() {
+    state.searchTerms = [];
+    state.activeSearchTerms = [];
+    if (elements.searchInput) {
+        elements.searchInput.value = '';
+    }
+    renderSearchTerms();
+    requestFitBounds();
+    filterSites();
+    updateCounts();
+    updateMap();
+}
+
+function renderSearchTerms() {
+    if (!elements.searchTags) return;
+    elements.searchTags.innerHTML = '';
+
+    state.searchTerms.forEach((term, index) => {
+        const tag = document.createElement('span');
+        tag.className = 'search-tag';
+        tag.dataset.index = String(index);
+        tag.setAttribute('role', 'listitem');
+
+        const label = document.createElement('span');
+        label.className = 'search-tag-label';
+        label.textContent = term.raw;
+        label.title = term.raw;
+        tag.appendChild(label);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'search-tag-remove';
+        removeButton.dataset.index = String(index);
+        removeButton.setAttribute('aria-label', `Remove term ${term.raw}`);
+        removeButton.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+        tag.appendChild(removeButton);
+
+        elements.searchTags.appendChild(tag);
+    });
+
+    updateSearchControlsState();
+}
+
+function updateSearchControlsState() {
+    const hasContent = state.searchTerms.length > 0 || state.activeSearchTerms.length > 0 || Boolean(elements.searchInput?.value?.trim());
+    if (elements.searchClear) {
+        elements.searchClear.disabled = !hasContent;
+    }
+    if (elements.searchBar) {
+        elements.searchBar.classList.toggle('has-active-search', state.activeSearchTerms.length > 0);
+    }
+}
+
+function applySearchFilter() {
+    state.activeSearchTerms = state.searchTerms.map(term => term.normalized);
+    requestFitBounds();
+    filterSites();
+    updateCounts();
+    updateMap();
+    updateSearchControlsState();
+}
+
+function matchesActiveSearchTerms(site) {
+    if (!Array.isArray(state.activeSearchTerms) || state.activeSearchTerms.length === 0) return true;
+    const haystack = site.searchText || '';
+    if (!haystack) return false;
+    return state.activeSearchTerms.every(term => haystack.includes(term));
 }
 
 // Update controls visibility
@@ -337,7 +541,7 @@ function processSitesData(sites) {
             : (site.country ? [site.country] : []);
         const images = normalizeImages(site.images || site.imageList || site.media || null);
 
-        return {
+        const normalizedSite = {
             id,
             name: site.label || site.name || 'Unknown Site',
             country: countries.length > 0 ? countries.join(', ') : 'Unknown',
@@ -349,8 +553,13 @@ function processSitesData(sites) {
             criteria,
             description: site.description || 'UNESCO World Heritage Site',
             officialUrl: site.unescoUrl || site.officialUrl || '',
+            unescoId: site.unescoId || site.unescoIdentifier || site.unesco_id || '',
             images
         };
+
+        normalizedSite.searchText = buildSiteSearchText(normalizedSite);
+
+        return normalizedSite;
     }).filter(site => 
         site.latitude != null &&
         site.longitude != null &&
@@ -529,7 +738,8 @@ function filterSites() {
     state.filteredSites = state.sites.filter(site => {
         const yearMatch = site.inscriptionYear <= state.selectedYear;
         const typeMatch = state.selectedType === 'all' || site.type === state.selectedType;
-        return yearMatch && typeMatch;
+        const searchMatch = matchesActiveSearchTerms(site);
+        return yearMatch && typeMatch && searchMatch;
     });
     
     elements.siteCount.innerHTML = `Showing <strong>${state.filteredSites.length}</strong> UNESCO World Heritage Sites${state.selectedYear < new Date().getFullYear() ? ` up to ${state.selectedYear}` : ''}`;
@@ -549,7 +759,8 @@ function updateSliderBubble() {
     const year = state.selectedYear;
     const count = state.sites.filter(site =>
         site.inscriptionYear === year &&
-        (state.selectedType === 'all' || site.type === state.selectedType)
+        (state.selectedType === 'all' || site.type === state.selectedType) &&
+        matchesActiveSearchTerms(site)
     ).length;
 
     bubble.textContent = `${year} | ${count} ${count === 1 ? 'Site' : 'Sites'}`;
@@ -596,10 +807,10 @@ function updateSliderEnds() {
 // Update site counts
 function updateCounts() {
     const counts = {
-        all: state.sites.filter(s => s.inscriptionYear <= state.selectedYear).length,
-        cultural: state.sites.filter(s => s.type === 'cultural' && s.inscriptionYear <= state.selectedYear).length,
-        natural: state.sites.filter(s => s.type === 'natural' && s.inscriptionYear <= state.selectedYear).length,
-        mixed: state.sites.filter(s => s.type === 'mixed' && s.inscriptionYear <= state.selectedYear).length
+        all: state.sites.filter(s => s.inscriptionYear <= state.selectedYear && matchesActiveSearchTerms(s)).length,
+        cultural: state.sites.filter(s => s.type === 'cultural' && s.inscriptionYear <= state.selectedYear && matchesActiveSearchTerms(s)).length,
+        natural: state.sites.filter(s => s.type === 'natural' && s.inscriptionYear <= state.selectedYear && matchesActiveSearchTerms(s)).length,
+        mixed: state.sites.filter(s => s.type === 'mixed' && s.inscriptionYear <= state.selectedYear && matchesActiveSearchTerms(s)).length
     };
     
     document.getElementById('count-all').textContent = counts.all;

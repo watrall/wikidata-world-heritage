@@ -1089,6 +1089,7 @@ function updateMap() {
 
         marker.on('popupopen', (event) => {
             initializePopupMedia(event.popup.getElement());
+            centerPopupOnMarker(marker);
         });
 
         marker.on('mouseover', function() {
@@ -1207,6 +1208,39 @@ function buildPopupContent(site, config) {
             </div>
         </div>
     `;
+}
+
+function centerPopupOnMarker(marker) {
+    if (!marker || !mapState.map) return;
+    const map = mapState.map;
+    const latLng = marker.getLatLng();
+    if (!latLng) return;
+
+    mapState.isAutoFitting = true;
+
+    const finishAutoFit = () => {
+        mapState.isAutoFitting = false;
+    };
+
+    const currentZoom = map.getZoom();
+    const mapSize = map.getSize();
+    const verticalOffset = Math.max(0, Math.min(200, Math.round(mapSize.y * 0.24)));
+    const projectedPoint = map.project(latLng, currentZoom);
+    const targetPoint = projectedPoint.subtract([0, verticalOffset]);
+    if (projectedPoint.equals(targetPoint)) {
+        finishAutoFit();
+        return;
+    }
+    const targetLatLng = map.unproject(targetPoint, currentZoom);
+
+    map.once('moveend', finishAutoFit);
+
+    map.flyTo(targetLatLng, currentZoom, {
+        animate: true,
+        duration: 0.35,
+        easeLinearity: 0.25,
+        noMoveStart: false
+    });
 }
 
 function initializePopupMedia(root) {

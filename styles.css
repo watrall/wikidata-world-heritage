@@ -628,31 +628,28 @@ input {
 }
 
 .popup-card {
+    --popup-card-height: 340px;
     display: flex;
     flex-direction: column;
+    width: min(320px, 72vw);
+    min-height: var(--popup-card-height);
     border-radius: 1rem;
     overflow: hidden;
-    min-width: 230px;
-    max-width: 280px;
-    box-shadow: 0 18px 40px -22px rgba(15, 23, 42, 0.45);
     background: var(--surface);
-    border: 1px solid rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 22px 44px -26px rgba(15, 23, 42, 0.55);
 }
 
 .leaflet-popup-content {
     background: transparent;
 }
 
-.popup-card.has-media .popup-body {
-    padding-top: 0.85rem;
-}
-
 .popup-media {
     position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
+    flex: 0 0 calc(var(--popup-card-height) / 2);
+    min-height: 160px;
+    background: #d8dde3;
     overflow: hidden;
-    background: #eef1f4;
 }
 
 .popup-media-track {
@@ -682,14 +679,14 @@ input {
 
 .popup-media-dots {
     position: absolute;
-    bottom: 0.6rem;
+    bottom: 0.7rem;
     left: 50%;
     transform: translateX(-50%);
     display: inline-flex;
     gap: 0.35rem;
-    padding: 0.2rem 0.45rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.38);
     backdrop-filter: blur(4px);
 }
 
@@ -710,17 +707,25 @@ input {
 }
 
 .popup-body {
-    padding: 0.85rem 1rem 1rem;
+    flex: 1 1 auto;
+    padding: 1rem 1.1rem 1.1rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.6rem;
 }
 
 .popup-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
+}
+
+.popup-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
 }
 
 .popup-card h3 {
@@ -728,40 +733,51 @@ input {
     font-size: 1rem;
     font-weight: var(--font-weight-medium);
     color: var(--foreground);
+    line-height: 1.2;
+}
+
+.popup-country {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.popup-country span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.popup-country-flag {
+    font-size: 1.1rem;
+    line-height: 1;
 }
 
 .popup-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.6rem;
-    border-radius: 9999px;
-    font-size: 0.7rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.65rem;
+    font-size: 0.72rem;
     font-weight: var(--font-weight-medium);
-    background-color: color-mix(in srgb, var(--badge-color, #0EA5E9) 20%, #ffffff 80%);
-    border: 1px solid color-mix(in srgb, var(--badge-color, #0EA5E9) 35%, #ffffff 65%);
+    background-color: color-mix(in srgb, var(--badge-color, #0EA5E9) 22%, #ffffff 78%);
+    border: 1px solid color-mix(in srgb, var(--badge-color, #0EA5E9) 40%, #ffffff 60%);
     color: var(--badge-color, var(--foreground));
+    white-space: nowrap;
 }
 
-.popup-details {
-    display: grid;
-    gap: 0.35rem;
-}
-
-.popup-meta {
+.popup-inscription {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     color: var(--muted-foreground);
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.popup-meta span {
-    font-weight: var(--font-weight-medium);
-    color: var(--foreground);
 }
 
 .popup-description {
+    flex: 1 1 auto;
     margin: 0;
     font-size: 0.82rem;
     color: var(--muted-foreground);
@@ -780,7 +796,7 @@ input {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    margin-top: 0.2rem;
+    margin-top: 0.25rem;
 }
 
 .popup-link:hover,
@@ -949,7 +965,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .leaflet-popup {
     position: absolute;
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 28px;
 }
 
 .leaflet-popup-content-wrapper {
@@ -1196,7 +1212,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 }
 
 .leaflet-popup {
-    margin-bottom: 16px;
+    margin-bottom: 28px;
 }
 
 .leaflet-popup-content-wrapper {

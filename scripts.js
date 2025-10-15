@@ -92,6 +92,148 @@ function normalizeImages(images) {
     return [];
 }
 
+const DEFAULT_POPUP_IMAGE = 'assets/default-popup.svg';
+
+const FALLBACK_REGION_CODES = typeof Intl?.supportedValuesOf === 'function'
+    ? Intl.supportedValuesOf('region').filter(code => /^[A-Z]{2}$/.test(code))
+    : 'AD,AE,AF,AG,AI,AL,AM,AO,AQ,AR,AS,AT,AU,AW,AX,AZ,BA,BB,BD,BE,BF,BG,BH,BI,BJ,BL,BM,BN,BO,BQ,BR,BS,BT,BV,BW,BY,BZ,CA,CC,CD,CF,CG,CH,CI,CK,CL,CM,CN,CO,CR,CU,CV,CW,CX,CY,CZ,DE,DJ,DK,DM,DO,DZ,EC,EE,EG,EH,ER,ES,ET,FI,FJ,FK,FM,FO,FR,GA,GB,GD,GE,GF,GG,GH,GI,GL,GM,GN,GP,GQ,GR,GS,GT,GU,GW,GY,HK,HM,HN,HR,HT,HU,ID,IE,IL,IM,IN,IO,IQ,IR,IS,IT,JE,JM,JO,JP,KE,KG,KH,KI,KM,KN,KP,KR,KW,KY,KZ,LA,LB,LC,LI,LK,LR,LS,LT,LU,LV,LY,MA,MC,MD,ME,MF,MG,MH,MK,ML,MM,MN,MO,MP,MQ,MR,MS,MT,MU,MV,MW,MX,MY,MZ,NA,NC,NE,NF,NG,NI,NL,NO,NP,NR,NU,NZ,OM,PA,PE,PF,PG,PH,PK,PL,PM,PN,PR,PS,PT,PW,PY,QA,RE,RO,RS,RU,RW,SA,SB,SC,SD,SE,SG,SH,SI,SJ,SK,SL,SM,SN,SO,SR,SS,ST,SV,SX,SY,SZ,TC,TD,TF,TG,TH,TJ,TK,TL,TM,TN,TO,TR,TT,TV,TW,TZ,UA,UG,UM,US,UY,UZ,VA,VC,VE,VG,VI,VN,VU,WF,WS,YE,YT,ZA,ZM,ZW'.split(',');
+
+const REGION_DISPLAY = typeof Intl?.DisplayNames === 'function'
+    ? new Intl.DisplayNames(['en'], { type: 'region' })
+    : null;
+
+const COUNTRY_LOOKUP_STRIP_PATTERN = /\b(the|state|states|republic|kingdom|plurinational|democratic|people's|people|federal|federation|territory|commonwealth|nation|socialist|arab|bolivarian|co-operative|cooperative|islamic)\b/g;
+const COUNTRY_LOOKUP_SPLIT_PATTERN = /[,/]|(?:\sand\s)|(?:\s&\s)/i;
+
+function normalizeCountryKey(value) {
+    if (!value) return '';
+    return String(value)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '');
+}
+
+function stripCountryDescriptors(key) {
+    if (!key) return '';
+    return normalizeCountryKey(
+        String(key)
+            .replace(COUNTRY_LOOKUP_STRIP_PATTERN, ' ')
+    );
+}
+
+function addCountryLookupEntry(map, key, code) {
+    if (!key) return;
+    const normalized = normalizeCountryKey(key);
+    if (!normalized) return;
+    if (!map.has(normalized)) {
+        map.set(normalized, code);
+    }
+    const stripped = stripCountryDescriptors(key);
+    if (stripped && !map.has(stripped)) {
+        map.set(stripped, code);
+    }
+}
+
+const COUNTRY_NAME_OVERRIDES = new Map([
+    ['boliviaplurinationalstateof', 'BO'],
+    ['bolivia', 'BO'],
+    ['cotedivoire', 'CI'],
+    ['ivorycoast', 'CI'],
+    ['congodemocraticrepublicofthe', 'CD'],
+    ['democraticrepublicofthecongo', 'CD'],
+    ['congorepublicofthe', 'CG'],
+    ['republicofthecongo', 'CG'],
+    ['iran', 'IR'],
+    ['iranislamicrepublicof', 'IR'],
+    ['laopdr', 'LA'],
+    ['laopeoplesdemocraticrepublic', 'LA'],
+    ['laos', 'LA'],
+    ['moldovarepublicof', 'MD'],
+    ['republicofmoldova', 'MD'],
+    ['micronesiafederatedstatesof', 'FM'],
+    ['palestinianterritories', 'PS'],
+    ['russianfederation', 'RU'],
+    ['russia', 'RU'],
+    ['southkorea', 'KR'],
+    ['republicofkorea', 'KR'],
+    ['northkorea', 'KP'],
+    ['dprk', 'KP'],
+    ['syrianarabrepublic', 'SY'],
+    ['syria', 'SY'],
+    ['tanzaniaunitedrepublicof', 'TZ'],
+    ['timorleste', 'TL'],
+    ['unitedstatesofamerica', 'US'],
+    ['unitedstates', 'US'],
+    ['unitedkingdomofgreatbritainandnorthernireland', 'GB'],
+    ['unitedkingdom', 'GB'],
+    ['venezuela', 'VE'],
+    ['bolivarianrepublicofvenezuela', 'VE'],
+    ['vietnamsocialistrepublicof', 'VN'],
+    ['vietnamsocialistrepublic', 'VN'],
+    ['vietnam', 'VN']
+]);
+
+const COUNTRY_NAME_TO_ISO = (() => {
+    const map = new Map();
+    FALLBACK_REGION_CODES.forEach(code => {
+        const label = REGION_DISPLAY?.of(code) || code;
+        addCountryLookupEntry(map, label, code);
+    });
+    COUNTRY_NAME_OVERRIDES.forEach((code, key) => {
+        addCountryLookupEntry(map, key, code);
+    });
+    return map;
+})();
+
+const COUNTRY_LOOKUP_KEYS = Array.from(COUNTRY_NAME_TO_ISO.keys());
+
+function resolveCountryCodeFromName(name) {
+    if (!name) return null;
+    const segments = String(name)
+        .split(COUNTRY_LOOKUP_SPLIT_PATTERN)
+        .map(segment => segment.trim())
+        .filter(Boolean);
+
+    const tryResolve = (key) => {
+        if (!key) return null;
+        const normalized = normalizeCountryKey(key);
+        if (!normalized) return null;
+        if (COUNTRY_NAME_OVERRIDES.has(normalized)) {
+            return COUNTRY_NAME_OVERRIDES.get(normalized);
+        }
+        const direct = COUNTRY_NAME_TO_ISO.get(normalized);
+        if (direct) {
+            return direct;
+        }
+        const stripped = stripCountryDescriptors(key);
+        if (COUNTRY_NAME_TO_ISO.has(stripped)) {
+            return COUNTRY_NAME_TO_ISO.get(stripped);
+        }
+        const fallbackKey = COUNTRY_LOOKUP_KEYS.find(existing =>
+            existing.includes(normalized) || normalized.includes(existing)
+        );
+        return fallbackKey ? COUNTRY_NAME_TO_ISO.get(fallbackKey) : null;
+    };
+
+    for (const segment of segments) {
+        const match = tryResolve(segment);
+        if (match) return match;
+    }
+
+    return tryResolve(name);
+}
+
+function countryCodeToFlagEmoji(code) {
+    if (!code || typeof code !== 'string' || code.length !== 2) return '';
+    const upper = code.toUpperCase();
+    const base = 127397;
+    return String.fromCodePoint(
+        base + upper.charCodeAt(0),
+        base + upper.charCodeAt(1)
+    );
+}
+
 function buildSiteSearchText(site) {
     const fragments = [];
     if (site.name) fragments.push(site.name);
@@ -550,12 +692,18 @@ function processSitesData(sites) {
             ? site.countries
             : (site.country ? [site.country] : []);
         const images = normalizeImages(site.images || site.imageList || site.media || null);
+        const primaryCountry = countries[0] ?? site.country ?? '';
+        const countryCode = resolveCountryCodeFromName(primaryCountry || site.country);
+        const countryFlag = countryCodeToFlagEmoji(countryCode);
 
         const normalizedSite = {
             id,
             name: site.label || site.name || 'Unknown Site',
             country: countries.length > 0 ? countries.join(', ') : 'Unknown',
             countries,
+            primaryCountry,
+            countryCode: countryCode ?? null,
+            countryFlag: countryFlag || '',
             latitude,
             longitude,
             inscriptionYear: inscriptionYearValue ?? 1978,
@@ -973,45 +1121,51 @@ function createIcon(type) {
 }
 
 function buildPopupContent(site, config) {
-    const hasImages = Array.isArray(site.images) && site.images.length > 0;
-    const slides = hasImages
-        ? site.images.slice(0, 5)
-        : [];
-
-    const mediaSection = hasImages ? `
-        <div class="popup-media" data-active-index="0">
-            <div class="popup-media-track">
-                ${slides.map((url, index) => `
-                    <div class="popup-media-slide${index === 0 ? ' active' : ''}">
-                        <img src="${escapeHtml(url)}" alt="${escapeHtml(site.name)} image ${index + 1}" loading="lazy" />
-                    </div>
-                `).join('')}
-            </div>
-            ${slides.length > 1 ? `
-                <div class="popup-media-dots" role="tablist" aria-label="${escapeHtml(site.name)} images">
-                    ${slides.map((_, index) => `
-                        <button type="button" class="popup-media-dot${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="Show image ${index + 1}"></button>
-                    `).join('')}
-                </div>
-            ` : ''}
+    const hasRealImages = Array.isArray(site.images) && site.images.length > 0;
+    const slides = (hasRealImages ? site.images : [DEFAULT_POPUP_IMAGE]).slice(0, 5);
+    const cardClasses = 'popup-card has-media';
+    const countryLabel = site.country || 'Unknown';
+    const preComputedFlag = site.countryFlag || countryCodeToFlagEmoji(site.countryCode);
+    const derivedCode = !preComputedFlag && countryLabel ? resolveCountryCodeFromName(countryLabel) : null;
+    const flagEmoji = preComputedFlag || (derivedCode ? countryCodeToFlagEmoji(derivedCode) : '');
+    const countryMarkup = countryLabel ? `
+        <div class="popup-country" role="text">
+            ${flagEmoji ? `<span class="popup-country-flag" aria-hidden="true">${flagEmoji}</span>` : ''}
+            <span>${escapeHtml(countryLabel)}</span>
         </div>
     ` : '';
-
-    const cardClasses = `popup-card${hasImages ? ' has-media' : ''}`;
+    const inscriptionText = site.inscriptionYear
+        ? `Inscribed in ${escapeHtml(site.inscriptionYear)}`
+        : 'Inscription year unavailable';
 
     return `
         <div class="${cardClasses}" data-site-id="${escapeHtml(site.id)}">
-            ${mediaSection}
+            <div class="popup-media" data-active-index="0" data-has-real-media="${hasRealImages}">
+                <div class="popup-media-track">
+                    ${slides.map((url, index) => `
+                        <div class="popup-media-slide${index === 0 ? ' active' : ''}">
+                            <img src="${escapeHtml(url)}" alt="${escapeHtml(site.name)} image ${index + 1}" loading="lazy" />
+                        </div>
+                    `).join('')}
+                </div>
+                ${slides.length > 1 ? `
+                    <div class="popup-media-dots" role="tablist" aria-label="${escapeHtml(site.name)} images">
+                        ${slides.map((_, index) => `
+                            <button type="button" class="popup-media-dot${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="Show image ${index + 1}"></button>
+                        `).join('')}
+                    </div>
+                ` : ''}
+            </div>
             <div class="popup-body">
                 <div class="popup-header">
-                    <h3>${escapeHtml(site.name)}</h3>
+                    <div class="popup-title">
+                        <h3>${escapeHtml(site.name)}</h3>
+                        ${countryMarkup}
+                    </div>
                     <span class="popup-badge" style="--badge-color:${config.color}">${config.label}</span>
                 </div>
-                <div class="popup-details">
-                    <p class="popup-meta"><span>Country</span>${escapeHtml(site.country)}</p>
-                    <p class="popup-meta"><span>Inscribed</span>${escapeHtml(site.inscriptionYear ?? 'Unknown')}</p>
-                    <p class="popup-description">${escapeHtml(site.description)}</p>
-                </div>
+                <p class="popup-inscription">${inscriptionText}</p>
+                <p class="popup-description">${escapeHtml(site.description)}</p>
                 ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
             </div>
         </div>

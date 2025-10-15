@@ -1091,10 +1091,18 @@ function updateMap() {
         const marker = L.marker([site.latitude, site.longitude], {
             icon,
             siteType: site.type
-        }).bindPopup(popupHtml);
+        }).bindPopup(popupHtml, {
+            autoPan: false
+        });
+
+        marker.__suppressCentering = false;
 
         marker.on('popupopen', (event) => {
             initializePopupMedia(event.popup.getElement());
+            if (marker.__suppressCentering) {
+                marker.__suppressCentering = false;
+                return;
+            }
             centerPopupOnMarker(marker);
         });
 
@@ -1170,14 +1178,18 @@ function buildPopupContent(site, config) {
     const emojiFlag = emojiPattern.test(rawFlag)
         ? rawFlag
         : (isoCode ? countryCodeToFlagEmoji(isoCode) : '');
+    const flagClass = isoCode ? `fi fi-${isoCode.toLowerCase()}` : '';
+    const flagMarkup = flagClass
+        ? `<span class="popup-country-flag ${flagClass}" aria-hidden="true"></span>`
+        : emojiFlag
+            ? `<span class="popup-country-flag popup-country-flag--emoji" aria-hidden="true">${escapeHtml(emojiFlag)}</span>`
+            : isoCode
+                ? `<span class="popup-country-flag popup-country-flag--fallback" aria-hidden="true">${escapeHtml(isoCode)}</span>`
+                : '';
 
     const countryMarkup = countryLabel ? `
         <span class="popup-country" role="text">
-            ${emojiFlag
-                ? `<span class="popup-country-flag" aria-hidden="true">${escapeHtml(emojiFlag)}</span>`
-                : isoCode
-                    ? `<span class="popup-country-flag popup-country-flag--fallback" aria-hidden="true">${escapeHtml(isoCode)}</span>`
-                    : ''}
+            ${flagMarkup}
             <span>${escapeHtml(countryLabel)}</span>
         </span>
     ` : '';
@@ -1233,6 +1245,11 @@ function centerPopupOnMarker(marker) {
     const latLng = marker.getLatLng();
     if (!latLng) return;
 
+    const clusterGroup = mapState.clusterGroup;
+    const parentCluster = marker.__parent || null;
+    const spiderCluster = clusterGroup?._spiderfied || null;
+    const shouldRespider = spiderCluster && parentCluster && spiderCluster === parentCluster;
+
     mapState.isAutoFitting = true;
 
     const finishAutoFit = () => {
@@ -1260,7 +1277,18 @@ function centerPopupOnMarker(marker) {
     }
     const targetLatLng = map.unproject(targetPoint, currentZoom);
 
-    map.once('moveend', finishAutoFit);
+    map.once('moveend', () => {
+        finishAutoFit();
+        if (shouldRespider && typeof parentCluster?.spiderfy === 'function') {
+            requestAnimationFrame(() => {
+                parentCluster.spiderfy();
+                requestAnimationFrame(() => {
+                    marker.__suppressCentering = true;
+                    marker.openPopup();
+                });
+            });
+        }
+    });
 
     map.flyTo(targetLatLng, currentZoom, {
         animate: true,

@@ -740,26 +740,34 @@ input {
 }
 
 .popup-country-flag {
+    display: inline-block;
+    border-radius: 0.24rem;
+    border: 1px solid rgba(3, 2, 19, 0.12);
+    box-shadow: 0 2px 6px -4px rgba(15, 23, 42, 0.4);
+    background: #ffffff;
+    overflow: hidden;
+    line-height: 1;
+}
+
+.popup-country-flag.fi {
+    width: 1.4rem;
+    height: 1.05rem;
+    font-size: 0.95rem;
+    background-size: cover;
+    background-position: center;
+}
+
+.popup-country-flag--emoji,
+.popup-country-flag--fallback {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35rem;
-    height: 0.9rem;
-    border-radius: 0.2rem;
-    background: #ffffff;
-    border: 1px solid rgba(3, 2, 19, 0.14);
-    box-shadow: 0 2px 6px -4px rgba(15, 23, 42, 0.4);
-    font-size: 1.12rem;
-    line-height: 1;
-    color: inherit;
-    overflow: hidden;
-    transform: translateY(0.02rem);
-}
-
-.popup-country-flag--fallback {
-    font-size: 0.62rem;
+    width: 1.4rem;
+    height: 1.05rem;
+    font-size: 0.72rem;
     font-weight: var(--font-weight-medium);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.04em;
+    color: var(--foreground);
     background: rgba(3, 2, 19, 0.04);
     box-shadow: none;
 }

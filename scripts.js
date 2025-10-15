@@ -1234,7 +1234,17 @@ function centerPopupOnMarker(marker) {
 
     const currentZoom = map.getZoom();
     const mapSize = map.getSize();
-    const verticalOffset = Math.max(0, Math.min(200, Math.round(mapSize.y * 0.24)));
+    const baseOffset = Math.round(mapSize.y * 0.22);
+    let verticalOffset = Math.max(96, Math.min(260, baseOffset));
+
+    const searchForm = elements.searchForm;
+    if (searchForm) {
+        const searchRect = searchForm.getBoundingClientRect();
+        if (searchRect.bottom > 0) {
+            const safeSpace = Math.ceil(searchRect.bottom + 20);
+            verticalOffset = Math.max(verticalOffset, safeSpace);
+        }
+    }
     const projectedPoint = map.project(latLng, currentZoom);
     const targetPoint = projectedPoint.subtract([0, verticalOffset]);
     if (projectedPoint.equals(targetPoint)) {

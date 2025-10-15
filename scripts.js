@@ -1019,9 +1019,17 @@ function showError(message) {
 
 function initMap() {
     console.log('Initializing map with OpenStreetMap tiles...');
+
+    // Allow panning beyond default world tile bounds by using an infinite CRS definition.
+    const infiniteWorldCrs = L.Util.extend({}, L.CRS.EPSG3857, { infinite: true });
     
     // Create map
-    mapState.map = L.map('map').setView([20, 0], 2);
+    mapState.map = L.map('map', {
+        crs: infiniteWorldCrs,
+        worldCopyJump: false,
+        maxBounds: null,
+        maxBoundsViscosity: 0
+    }).setView([20, 0], 2);
 
     mapState.map.on('movestart', () => {
         if (!mapState.isAutoFitting) {

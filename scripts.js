@@ -1158,9 +1158,19 @@ function buildPopupContent(site, config) {
         || normalizedIsoCode(site.countryFlag)
         || normalizedIsoCode(derivedCode);
 
+    const emojiPattern = /^[\u{1F1E6}-\u{1F1FF}]{2}$/u;
+    const rawFlag = typeof site.countryFlag === 'string' ? site.countryFlag.trim() : '';
+    const emojiFlag = emojiPattern.test(rawFlag)
+        ? rawFlag
+        : (isoCode ? countryCodeToFlagEmoji(isoCode) : '');
+
     const countryMarkup = countryLabel ? `
         <span class="popup-country" role="text">
-            ${isoCode ? `<span class="popup-country-flag" aria-hidden="true">${escapeHtml(isoCode)}</span>` : ''}
+            ${emojiFlag
+                ? `<span class="popup-country-flag" aria-hidden="true">${escapeHtml(emojiFlag)}</span>`
+                : isoCode
+                    ? `<span class="popup-country-flag popup-country-flag--fallback" aria-hidden="true">${escapeHtml(isoCode)}</span>`
+                    : ''}
             <span>${escapeHtml(countryLabel)}</span>
         </span>
     ` : '';

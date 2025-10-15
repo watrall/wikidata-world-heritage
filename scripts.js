@@ -41,7 +41,12 @@ const mapState = {
     clusterGroup: null,
     forceFitBounds: true,
     userHasAdjusted: false,
-    isAutoFitting: false
+    isAutoFitting: false,
+    activeSpiderCluster: null,
+    lastSpiderCluster: null,
+    spiderfiedMarkers: new Set(),
+    pendingRespiderCluster: null,
+    pendingRespiderMarker: null
 };
 
 function requestFitBounds() {
@@ -90,6 +95,17 @@ function normalizeImages(images) {
         return [images.trim()].filter(Boolean).slice(0, 5);
     }
     return [];
+}
+
+function formatDescriptionText(value) {
+    if (value == null) return '';
+    const trimmed = String(value).trim();
+    if (!trimmed) return '';
+    const firstChar = trimmed.charAt(0);
+    if (firstChar && firstChar === firstChar.toLowerCase() && firstChar !== firstChar.toUpperCase()) {
+        return firstChar.toUpperCase() + trimmed.slice(1);
+    }
+    return trimmed;
 }
 
 const DEFAULT_POPUP_IMAGES = [
@@ -294,8 +310,25 @@ const markerConfigs = {
     }
 };
 
+function resolveClusterFromEvent(event) {
+    if (!event) return null;
+    if (event.layer && typeof event.layer.getAllChildMarkers === 'function') {
+        return event.layer;
+    }
+    if (event.cluster && typeof event.cluster.getAllChildMarkers === 'function') {
+        return event.cluster;
+    }
+    if (event.target && typeof event.target.getAllChildMarkers === 'function') {
+        return event.target;
+    }
+    if (typeof event.getAllChildMarkers === 'function') {
+        return event;
+    }
+    return null;
+}
+
 function createClusterGroup() {
-    return L.markerClusterGroup({
+    const clusterGroup = L.markerClusterGroup({
         showCoverageOnHover: false,
         spiderfyOnMaxZoom: true,
         spiderfyDistanceMultiplier: 1.2,
@@ -321,6 +354,24 @@ function createClusterGroup() {
             });
         }
     });
+
+    clusterGroup.on('spiderfied', (event) => {
+        const cluster = resolveClusterFromEvent(event);
+        if (cluster) {
+            mapState.activeSpiderCluster = cluster;
+            mapState.lastSpiderCluster = cluster;
+            const markers = cluster.getAllChildMarkers?.() || [];
+            mapState.spiderfiedMarkers = new Set(markers);
+        }
+    });
+
+    clusterGroup.on('unspiderfied', () => {
+        mapState.activeSpiderCluster = null;
+        mapState.lastSpiderCluster = null;
+        mapState.spiderfiedMarkers.clear();
+    });
+
+    return clusterGroup;
 }
 
 function determineClusterColor(markers) {
@@ -1098,12 +1149,16 @@ function updateMap() {
         marker.__suppressCentering = false;
 
         marker.on('popupopen', (event) => {
-            initializePopupMedia(event.popup.getElement());
+            const popupElement = event.popup?.getElement?.();
+            initializePopupMedia(popupElement);
             if (marker.__suppressCentering) {
                 marker.__suppressCentering = false;
+                if (popupElement) {
+                    requestAnimationFrame(() => adjustPopupIntoViewport(marker, popupElement));
+                }
                 return;
             }
-            centerPopupOnMarker(marker);
+            centerPopupOnMarker(marker, popupElement);
         });
 
         marker.on('mouseover', function() {
@@ -1178,9 +1233,11 @@ function buildPopupContent(site, config) {
     const emojiFlag = emojiPattern.test(rawFlag)
         ? rawFlag
         : (isoCode ? countryCodeToFlagEmoji(isoCode) : '');
-    const flagClass = isoCode ? `fi fi-${isoCode.toLowerCase()}` : '';
-    const flagMarkup = flagClass
-        ? `<span class="popup-country-flag" aria-hidden="true"><span class="${flagClass}"></span></span>`
+    const flagImgSrc = isoCode
+        ? `https://cdn.jsdelivr.net/npm/flag-icons@6.6.6/flags/4x3/${isoCode.toLowerCase()}.svg`
+        : null;
+    const flagMarkup = flagImgSrc
+        ? `<span class="popup-country-flag" aria-hidden="true"><img src="${escapeHtml(flagImgSrc)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"></span>`
         : emojiFlag
             ? `<span class="popup-country-flag popup-country-flag--emoji" aria-hidden="true">${escapeHtml(emojiFlag)}</span>`
             : isoCode
@@ -1196,7 +1253,8 @@ function buildPopupContent(site, config) {
     const inscriptionText = site.inscriptionYear
         ? `Inscribed in ${escapeHtml(site.inscriptionYear)}`
         : '';
-    const descriptionText = site.description ? escapeHtml(site.description) : '';
+    const formattedDescription = formatDescriptionText(site.description);
+    const descriptionText = formattedDescription ? escapeHtml(formattedDescription) : '';
 
     const typeBadgeMarkup = `
         <span class="popup-chip popup-chip-overlay" style="--chip-color:${config.color}">${config.label}</span>
@@ -1239,11 +1297,12 @@ function buildPopupContent(site, config) {
     `;
 }
 
-function centerPopupOnMarker(marker) {
+function centerPopupOnMarker(marker, popupElement) {
     if (!marker || !mapState.map) return;
     const map = mapState.map;
     const latLng = marker.getLatLng();
     if (!latLng) return;
+    const popupEl = popupElement || marker.getPopup()?.getElement?.();
 
     const clusterGroup = mapState.clusterGroup;
     const parentCluster = marker.__parent || null;
@@ -1273,21 +1332,18 @@ function centerPopupOnMarker(marker) {
     const targetPoint = projectedPoint.subtract([0, verticalOffset]);
     if (projectedPoint.equals(targetPoint)) {
         finishAutoFit();
+        if (popupEl) {
+            requestAnimationFrame(() => adjustPopupIntoViewport(marker, popupEl));
+        }
         return;
     }
     const targetLatLng = map.unproject(targetPoint, currentZoom);
 
-    map.once('moveend', () => {
-        finishAutoFit();
-        if (shouldRespider && typeof parentCluster?.spiderfy === 'function') {
-            requestAnimationFrame(() => {
-                parentCluster.spiderfy();
-                requestAnimationFrame(() => {
-                    marker.__suppressCentering = true;
-                    marker.openPopup();
-                });
-            });
-        }
+    schedulePostMoveActions({
+        marker,
+        popupElement: popupEl,
+        cluster: shouldRespider ? parentCluster : null,
+        onAfter: finishAutoFit
     });
 
     map.flyTo(targetLatLng, currentZoom, {
@@ -1295,6 +1351,109 @@ function centerPopupOnMarker(marker) {
         duration: 0.35,
         easeLinearity: 0.25,
         noMoveStart: false
+    });
+}
+
+function schedulePostMoveActions({ marker, popupElement, cluster, onAfter }) {
+    if (!mapState.map) return;
+    const map = mapState.map;
+    const hasCluster = cluster && typeof cluster.spiderfy === 'function';
+
+    if (hasCluster) {
+        mapState.pendingRespiderCluster = cluster;
+        mapState.pendingRespiderMarker = marker || null;
+    } else {
+        mapState.pendingRespiderCluster = null;
+        mapState.pendingRespiderMarker = null;
+    }
+
+    map.once('moveend', () => {
+        if (typeof onAfter === 'function') {
+            onAfter();
+        }
+
+        const pendingCluster = mapState.pendingRespiderCluster;
+        const pendingMarker = mapState.pendingRespiderMarker;
+        mapState.pendingRespiderCluster = null;
+        mapState.pendingRespiderMarker = null;
+
+        if (pendingCluster && typeof pendingCluster.spiderfy === 'function') {
+            if (pendingMarker) {
+                pendingMarker.__suppressCentering = true;
+            }
+            requestAnimationFrame(() => {
+                pendingCluster.spiderfy();
+                if (pendingMarker) {
+                    requestAnimationFrame(() => {
+                        pendingMarker.openPopup();
+                        const reopenedPopup = pendingMarker.getPopup?.();
+                        const element = reopenedPopup?.getElement?.() || popupElement;
+                        if (element) {
+                            requestAnimationFrame(() => adjustPopupIntoViewport(pendingMarker, element));
+                        }
+                    });
+                }
+            });
+        } else if (popupElement) {
+            requestAnimationFrame(() => adjustPopupIntoViewport(marker, popupElement));
+        }
+    });
+}
+
+function adjustPopupIntoViewport(marker, popupElement) {
+    if (!marker || !popupElement || !mapState.map) return;
+    const map = mapState.map;
+    const mapContainer = map.getContainer();
+    if (!mapContainer) return;
+
+    const rect = popupElement.getBoundingClientRect();
+    if (!rect || !rect.width || !rect.height) return;
+
+    const mapRect = mapContainer.getBoundingClientRect();
+    const searchRect = elements.searchForm?.getBoundingClientRect();
+    const horizontalPadding = 18;
+    const verticalPadding = 16;
+    const safeTopBase = mapRect.top + verticalPadding;
+    const safeTop = searchRect
+        ? Math.max(safeTopBase, searchRect.bottom + verticalPadding)
+        : safeTopBase;
+    const safeBottom = mapRect.bottom - verticalPadding;
+    const safeLeft = mapRect.left + horizontalPadding;
+    const safeRight = mapRect.right - horizontalPadding;
+
+    let shiftX = 0;
+    let shiftY = 0;
+
+    if (rect.left < safeLeft) {
+        shiftX = rect.left - safeLeft;
+    } else if (rect.right > safeRight) {
+        shiftX = rect.right - safeRight;
+    }
+
+    if (rect.top < safeTop) {
+        shiftY = rect.top - safeTop;
+    } else if (rect.bottom > safeBottom) {
+        shiftY = rect.bottom - safeBottom;
+    }
+
+    if (shiftX === 0 && shiftY === 0) return;
+
+    const parentCluster = marker.__parent || null;
+    const spiderCluster = mapState.clusterGroup?._spiderfied || null;
+    const clusterToRestore = parentCluster && spiderCluster && parentCluster === spiderCluster
+        ? parentCluster
+        : null;
+
+    schedulePostMoveActions({
+        marker,
+        popupElement,
+        cluster: clusterToRestore
+    });
+
+    map.panBy([-shiftX, -shiftY], {
+        animate: true,
+        duration: 0.3,
+        easeLinearity: 0.25
     });
 }
 

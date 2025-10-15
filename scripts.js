@@ -1137,12 +1137,21 @@ function buildPopupContent(site, config) {
     const slides = (hasRealImages ? site.images : [DEFAULT_POPUP_IMAGE]).slice(0, 5);
     const cardClasses = 'popup-card';
     const countryLabel = site.country || 'Unknown';
-    const preComputedFlag = site.countryFlag || countryCodeToFlagEmoji(site.countryCode);
-    const derivedCode = !preComputedFlag && countryLabel ? resolveCountryCodeFromName(countryLabel) : null;
-    const flagEmoji = preComputedFlag || (derivedCode ? countryCodeToFlagEmoji(derivedCode) : '');
+    const normalizedIsoCode = (value) => {
+        if (!value || typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!/^[A-Za-z]{2}$/.test(trimmed)) return null;
+        return trimmed.toUpperCase();
+    };
+
+    const derivedCode = countryLabel ? resolveCountryCodeFromName(countryLabel) : null;
+    const isoCode = normalizedIsoCode(site.countryCode)
+        || normalizedIsoCode(site.countryFlag)
+        || normalizedIsoCode(derivedCode);
+
     const countryMarkup = countryLabel ? `
         <span class="popup-country" role="text">
-            ${flagEmoji ? `<span class="popup-country-flag" aria-hidden="true">${flagEmoji}</span>` : ''}
+            ${isoCode ? `<span class="popup-country-flag" aria-hidden="true">${escapeHtml(isoCode)}</span>` : ''}
             <span>${escapeHtml(countryLabel)}</span>
         </span>
     ` : '';
@@ -1183,9 +1192,9 @@ function buildPopupContent(site, config) {
             </div>
             <div class="popup-body">
                 <h3 class="popup-heading">${escapeHtml(site.name)}</h3>
+                ${metaMarkup}
                 ${inscriptionText ? `<p class="popup-meta-line">${inscriptionText}</p>` : ''}
                 ${descriptionText ? `<p class="popup-description">${descriptionText}</p>` : ''}
-                ${metaMarkup}
                 ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
             </div>
         </div>

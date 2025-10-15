@@ -717,7 +717,7 @@ input {
     display: flex;
     align-items: center;
     gap: 0.3rem;
-    margin-top: 0.45rem;
+    margin-top: 0.2rem;
 }
 
 .popup-country {
@@ -737,8 +737,18 @@ input {
 }
 
 .popup-country-flag {
-    font-size: 0.9rem;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.2rem;
+    background: color-mix(in srgb, var(--foreground) 6%, #ffffff 94%);
+    border: 1px solid rgba(3, 2, 19, 0.12);
+    font-size: 0.58rem;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.04em;
+    color: var(--foreground);
 }
 
 .popup-chip {
@@ -760,14 +770,7 @@ input {
     position: absolute;
     top: 0.65rem;
     right: 0.65rem;
-    padding: 0.18rem 0.6rem;
-    border-radius: 9999px;
-    background: color-mix(in srgb, var(--chip-color, #030213) 22%, rgba(255, 255, 255, 0.92) 78%);
-    border: 1px solid color-mix(in srgb, var(--chip-color, #030213) 32%, rgba(255, 255, 255, 0.88) 68%);
-    box-shadow: 0 16px 32px -20px rgba(15, 23, 42, 0.55);
-    color: var(--chip-color, #030213);
     pointer-events: none;
-    backdrop-filter: blur(6px);
     z-index: 3;
 }
 

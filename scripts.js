@@ -1421,22 +1421,34 @@ function adjustPopupIntoViewport(marker, popupElement) {
     const safeLeft = mapRect.left + horizontalPadding;
     const safeRight = mapRect.right - horizontalPadding;
 
+    if (safeRight <= safeLeft || safeBottom <= safeTop) return;
+
+    const safeWidth = safeRight - safeLeft;
+    const safeHeight = safeBottom - safeTop;
+    const extraWidth = rect.width - safeWidth;
+    const extraHeight = rect.height - safeHeight;
+
+    const desiredLeft = extraWidth > 0 ? safeLeft - extraWidth / 2 : safeLeft;
+    const desiredRight = extraWidth > 0 ? safeRight + extraWidth / 2 : safeRight;
+    const desiredTop = extraHeight > 0 ? safeTop - extraHeight / 2 : safeTop;
+    const desiredBottom = extraHeight > 0 ? safeBottom + extraHeight / 2 : safeBottom;
+
     let shiftX = 0;
     let shiftY = 0;
 
-    if (rect.left < safeLeft) {
-        shiftX = rect.left - safeLeft;
-    } else if (rect.right > safeRight) {
-        shiftX = rect.right - safeRight;
+    if (rect.left < desiredLeft) {
+        shiftX = rect.left - desiredLeft;
+    } else if (rect.right > desiredRight) {
+        shiftX = rect.right - desiredRight;
     }
 
-    if (rect.top < safeTop) {
-        shiftY = rect.top - safeTop;
-    } else if (rect.bottom > safeBottom) {
-        shiftY = rect.bottom - safeBottom;
+    if (rect.top < desiredTop) {
+        shiftY = rect.top - desiredTop;
+    } else if (rect.bottom > desiredBottom) {
+        shiftY = rect.bottom - desiredBottom;
     }
 
-    if (shiftX === 0 && shiftY === 0) return;
+    if (Math.abs(shiftX) < 0.5 && Math.abs(shiftY) < 0.5) return;
 
     const parentCluster = marker.__parent || null;
     const spiderCluster = mapState.clusterGroup?._spiderfied || null;
@@ -1444,16 +1456,42 @@ function adjustPopupIntoViewport(marker, popupElement) {
         ? parentCluster
         : null;
 
+    const zoom = map.getZoom();
+    const currentCenter = map.getCenter();
+    if (!currentCenter) return;
+
+    const shiftPoint = L.point(shiftX, shiftY);
+    const centerPoint = map.latLngToContainerPoint(currentCenter, zoom);
+    const targetPoint = L.point(centerPoint.x + shiftPoint.x, centerPoint.y + shiftPoint.y);
+    const targetLatLng = map.containerPointToLatLng(targetPoint, zoom);
+
+    if (!targetLatLng || !Number.isFinite(targetLatLng.lat) || !Number.isFinite(targetLatLng.lng)) {
+        return;
+    }
+
+    const latDiff = Math.abs(currentCenter.lat - targetLatLng.lat);
+    const lngDiff = Math.abs(currentCenter.lng - targetLatLng.lng);
+    if (latDiff < 1e-12 && lngDiff < 1e-12) {
+        return;
+    }
+
+    mapState.isAutoFitting = true;
+    const finishAutoFit = () => {
+        mapState.isAutoFitting = false;
+    };
+
     schedulePostMoveActions({
         marker,
         popupElement,
-        cluster: clusterToRestore
+        cluster: clusterToRestore,
+        onAfter: finishAutoFit
     });
 
-    map.panBy([-shiftX, -shiftY], {
+    map.flyTo(targetLatLng, zoom, {
         animate: true,
         duration: 0.3,
-        easeLinearity: 0.25
+        easeLinearity: 0.25,
+        noMoveStart: false
     });
 }
 

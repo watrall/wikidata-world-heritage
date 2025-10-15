@@ -1151,9 +1151,21 @@ function buildPopupContent(site, config) {
         : '';
     const descriptionText = site.description ? escapeHtml(site.description) : '';
 
+    const typeBadgeMarkup = `
+        <span class="popup-chip popup-chip-overlay" style="--chip-color:${config.color}">${config.label}</span>
+    `;
+    const metaMarkup = countryMarkup
+        ? `
+            <div class="popup-body-meta">
+                ${countryMarkup}
+            </div>
+        `
+        : '';
+
     return `
         <div class="${cardClasses}" data-site-id="${escapeHtml(site.id)}">
             <div class="popup-media" data-active-index="0" data-has-real-media="${hasRealImages}">
+                ${typeBadgeMarkup}
                 <div class="popup-media-track">
                     ${slides.map((url, index) => `
                         <div class="popup-media-slide${index === 0 ? ' active' : ''}">
@@ -1170,13 +1182,10 @@ function buildPopupContent(site, config) {
                 ` : ''}
             </div>
             <div class="popup-body">
-                <div class="popup-body-meta">
-                    ${countryMarkup}
-                    <span class="popup-chip" style="--chip-color:${config.color}">${config.label}</span>
-                </div>
                 <h3 class="popup-heading">${escapeHtml(site.name)}</h3>
                 ${inscriptionText ? `<p class="popup-meta-line">${inscriptionText}</p>` : ''}
                 ${descriptionText ? `<p class="popup-description">${descriptionText}</p>` : ''}
+                ${metaMarkup}
                 ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
             </div>
         </div>

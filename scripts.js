@@ -1135,20 +1135,21 @@ function createIcon(type) {
 function buildPopupContent(site, config) {
     const hasRealImages = Array.isArray(site.images) && site.images.length > 0;
     const slides = (hasRealImages ? site.images : [DEFAULT_POPUP_IMAGE]).slice(0, 5);
-    const cardClasses = 'popup-card has-media';
+    const cardClasses = 'popup-card';
     const countryLabel = site.country || 'Unknown';
     const preComputedFlag = site.countryFlag || countryCodeToFlagEmoji(site.countryCode);
     const derivedCode = !preComputedFlag && countryLabel ? resolveCountryCodeFromName(countryLabel) : null;
     const flagEmoji = preComputedFlag || (derivedCode ? countryCodeToFlagEmoji(derivedCode) : '');
     const countryMarkup = countryLabel ? `
-        <div class="popup-country" role="text">
+        <span class="popup-country" role="text">
             ${flagEmoji ? `<span class="popup-country-flag" aria-hidden="true">${flagEmoji}</span>` : ''}
             <span>${escapeHtml(countryLabel)}</span>
-        </div>
+        </span>
     ` : '';
     const inscriptionText = site.inscriptionYear
         ? `Inscribed in ${escapeHtml(site.inscriptionYear)}`
-        : 'Inscription year unavailable';
+        : '';
+    const descriptionText = site.description ? escapeHtml(site.description) : '';
 
     return `
         <div class="${cardClasses}" data-site-id="${escapeHtml(site.id)}">
@@ -1169,15 +1170,13 @@ function buildPopupContent(site, config) {
                 ` : ''}
             </div>
             <div class="popup-body">
-                <div class="popup-header">
-                    <div class="popup-title">
-                        <h3>${escapeHtml(site.name)}</h3>
-                        ${countryMarkup}
-                    </div>
-                    <span class="popup-badge" style="--badge-color:${config.color}">${config.label}</span>
+                <div class="popup-body-meta">
+                    ${countryMarkup}
+                    <span class="popup-chip" style="--chip-color:${config.color}">${config.label}</span>
                 </div>
-                <p class="popup-inscription">${inscriptionText}</p>
-                <p class="popup-description">${escapeHtml(site.description)}</p>
+                <h3 class="popup-heading">${escapeHtml(site.name)}</h3>
+                ${inscriptionText ? `<p class="popup-meta-line">${inscriptionText}</p>` : ''}
+                ${descriptionText ? `<p class="popup-description">${descriptionText}</p>` : ''}
                 ${site.officialUrl ? `<a href="${escapeHtml(site.officialUrl)}" target="_blank" rel="noopener noreferrer" class="popup-link">View on UNESCO →</a>` : ''}
             </div>
         </div>

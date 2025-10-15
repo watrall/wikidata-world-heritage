@@ -1180,7 +1180,7 @@ function buildPopupContent(site, config) {
         : (isoCode ? countryCodeToFlagEmoji(isoCode) : '');
     const flagClass = isoCode ? `fi fi-${isoCode.toLowerCase()}` : '';
     const flagMarkup = flagClass
-        ? `<span class="popup-country-flag ${flagClass}" aria-hidden="true"></span>`
+        ? `<span class="popup-country-flag" aria-hidden="true"><span class="${flagClass}"></span></span>`
         : emojiFlag
             ? `<span class="popup-country-flag popup-country-flag--emoji" aria-hidden="true">${escapeHtml(emojiFlag)}</span>`
             : isoCode

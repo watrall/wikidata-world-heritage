@@ -707,7 +707,7 @@ async function loadSites() {
         console.log('Loading sites from DigitalOcean Function...');
         
         // Use your actual DigitalOcean function URL
-        const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy';
+        const functionUrl = 'https://faas-nyc1-2ef2e6cc.doserverless.co/api/v1/web/fn-64bcf502-3460-4418-ae12-fed42467b800/default/wikidata-proxy?refresh=1';
         const response = await fetch(functionUrl, {
             headers: {
                 'Accept': 'application/json'

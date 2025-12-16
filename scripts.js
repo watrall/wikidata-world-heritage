@@ -49,6 +49,8 @@ const mapState = {
     pendingRespiderMarker: null
 };
 
+const imageCache = new Map();
+
 function requestFitBounds() {
     mapState.forceFitBounds = true;
 }
@@ -116,6 +118,8 @@ const DEFAULT_POPUP_IMAGES = [
     'assets/placeholder_image05.jpg'
 ];
 const FALLBACK_POPUP_IMAGE = 'assets/default-popup-fallback.svg';
+const COMMONS_API = 'https://commons.wikimedia.org/w/api.php';
+const MAX_POPUP_IMAGES = 5;
 
 const REGION_FALLBACK_CODES = 'AD,AE,AF,AG,AI,AL,AM,AO,AQ,AR,AS,AT,AU,AW,AX,AZ,BA,BB,BD,BE,BF,BG,BH,BI,BJ,BL,BM,BN,BO,BQ,BR,BS,BT,BV,BW,BY,BZ,CA,CC,CD,CF,CG,CH,CI,CK,CL,CM,CN,CO,CR,CU,CV,CW,CX,CY,CZ,DE,DJ,DK,DM,DO,DZ,EC,EE,EG,EH,ER,ES,ET,FI,FJ,FK,FM,FO,FR,GA,GB,GD,GE,GF,GG,GH,GI,GL,GM,GN,GP,GQ,GR,GS,GT,GU,GW,GY,HK,HM,HN,HR,HT,HU,ID,IE,IL,IM,IN,IO,IQ,IR,IS,IT,JE,JM,JO,JP,KE,KG,KH,KI,KM,KN,KP,KR,KW,KY,KZ,LA,LB,LC,LI,LK,LR,LS,LT,LU,LV,LY,MA,MC,MD,ME,MF,MG,MH,MK,ML,MM,MN,MO,MP,MQ,MR,MS,MT,MU,MV,MW,MX,MY,MZ,NA,NC,NE,NF,NG,NI,NL,NO,NP,NR,NU,NZ,OM,PA,PE,PF,PG,PH,PK,PL,PM,PN,PR,PS,PT,PW,PY,QA,RE,RO,RS,RU,RW,SA,SB,SC,SD,SE,SG,SH,SI,SJ,SK,SL,SM,SN,SO,SR,SS,ST,SV,SX,SY,SZ,TC,TD,TF,TG,TH,TJ,TK,TL,TM,TN,TO,TR,TT,TV,TW,TZ,UA,UG,UM,US,UY,UZ,VA,VC,VE,VG,VI,VN,VU,WF,WS,YE,YT,ZA,ZM,ZW'.split(',');
 
@@ -1148,9 +1152,11 @@ function updateMap() {
 
         marker.__suppressCentering = false;
 
+        marker.__siteData = site;
+
         marker.on('popupopen', (event) => {
             const popupElement = event.popup?.getElement?.();
-            initializePopupMedia(popupElement);
+            loadPopupImages(marker.__siteData, popupElement);
             if (marker.__suppressCentering) {
                 marker.__suppressCentering = false;
                 if (popupElement) {
@@ -1210,10 +1216,164 @@ function createIcon(type) {
     });
 }
 
+function refreshLucideIcons(root = document) {
+    try {
+        if (window.lucide?.createIcons) {
+            window.lucide.createIcons({ root, nameAttr: 'data-lucide' });
+        }
+    } catch (error) {
+        console.warn('Unable to render lucide icons', error);
+    }
+}
+
+function ensureFileTitle(title) {
+    if (!title) return null;
+    const trimmed = String(title).trim();
+    if (!trimmed) return null;
+    return trimmed.startsWith('File:') ? trimmed : `File:${trimmed}`;
+}
+
+async function fetchCommonsThumbnails(titles) {
+    const validTitles = titles
+        .map(ensureFileTitle)
+        .filter(Boolean)
+        .slice(0, MAX_POPUP_IMAGES);
+    if (validTitles.length === 0) return [];
+
+    const params = new URLSearchParams({
+        action: 'query',
+        prop: 'imageinfo',
+        format: 'json',
+        origin: '*',
+        iiprop: 'url|extmetadata',
+        iiurlwidth: '640',
+        titles: validTitles.join('|')
+    });
+
+    const response = await fetch(`${COMMONS_API}?${params.toString()}`);
+    if (!response.ok) throw new Error(`Commons image lookup failed: ${response.status}`);
+    const json = await response.json();
+    const pages = json?.query?.pages || {};
+    const urls = [];
+
+    Object.values(pages).forEach(page => {
+        const info = Array.isArray(page?.imageinfo) ? page.imageinfo[0] : null;
+        const thumb = info?.thumburl || info?.url || null;
+        if (thumb) {
+            urls.push(thumb);
+        }
+    });
+
+    return urls.slice(0, MAX_POPUP_IMAGES);
+}
+
+function renderMediaLoader(mediaElement) {
+    if (!mediaElement) return;
+    const track = mediaElement.querySelector('.popup-media-track');
+    if (track) {
+        track.classList.add('is-loading');
+        track.innerHTML = `
+            <div class="popup-media-loader" role="status" aria-label="Loading images"></div>
+        `;
+    }
+    const dots = mediaElement.querySelector('.popup-media-dots');
+    if (dots) dots.remove();
+}
+
+function renderMediaEmpty(mediaElement) {
+    if (!mediaElement) return;
+    const track = mediaElement.querySelector('.popup-media-track');
+    if (track) {
+        track.classList.remove('is-loading');
+        track.innerHTML = `
+            <div class="popup-media-slide active">
+                <div class="popup-media-empty" aria-label="No images available">
+                    <i class="popup-media-icon" data-lucide="image-off"></i>
+                    <span>No image available</span>
+                </div>
+            </div>
+        `;
+    }
+    const dots = mediaElement.querySelector('.popup-media-dots');
+    if (dots) dots.remove();
+    mediaElement.dataset.activeIndex = '0';
+    refreshLucideIcons(mediaElement);
+}
+
+function renderMediaSlides(mediaElement, urls, siteName) {
+    if (!mediaElement) return;
+    const sanitized = Array.isArray(urls) ? urls.filter(Boolean).slice(0, MAX_POPUP_IMAGES) : [];
+    if (sanitized.length === 0) {
+        renderMediaEmpty(mediaElement);
+        return;
+    }
+
+    const track = mediaElement.querySelector('.popup-media-track');
+    if (!track) return;
+    track.classList.remove('is-loading');
+    track.innerHTML = sanitized.map((url, index) => `
+        <div class="popup-media-slide${index === 0 ? ' active' : ''}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(siteName)} image ${index + 1}" loading="lazy" />
+        </div>
+    `).join('');
+
+    const dotsNeeded = sanitized.length > 1;
+    const existingDots = mediaElement.querySelector('.popup-media-dots');
+    if (existingDots) existingDots.remove();
+
+    if (dotsNeeded) {
+        const dots = document.createElement('div');
+        dots.className = 'popup-media-dots';
+        dots.setAttribute('role', 'tablist');
+        dots.setAttribute('aria-label', `${siteName} images`);
+        dots.innerHTML = sanitized.map((_, index) => `
+            <button type="button" class="popup-media-dot${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="Show image ${index + 1}"></button>
+        `).join('');
+        mediaElement.appendChild(dots);
+    }
+
+    mediaElement.dataset.activeIndex = '0';
+}
+
+async function loadPopupImages(site, popupElement) {
+    if (!site || !popupElement) return;
+    const mediaElement = popupElement.querySelector('.popup-media');
+    if (!mediaElement) return;
+
+    const hasImages = Array.isArray(site.images) && site.images.length > 0;
+    if (!hasImages) {
+        renderMediaEmpty(mediaElement);
+        initializePopupMedia(popupElement);
+        return;
+    }
+
+    const cached = imageCache.get(site.id);
+    if (cached) {
+        renderMediaSlides(mediaElement, cached, site.name);
+        initializePopupMedia(popupElement);
+        return;
+    }
+
+    renderMediaLoader(mediaElement);
+    try {
+        const urls = await fetchCommonsThumbnails(site.images);
+        const finalUrls = urls.length > 0 ? urls : [];
+        imageCache.set(site.id, finalUrls);
+        if (finalUrls.length === 0) {
+            renderMediaEmpty(mediaElement);
+        } else {
+            renderMediaSlides(mediaElement, finalUrls, site.name);
+        }
+    } catch (error) {
+        console.warn('Unable to load Commons images for site', site.id, error);
+        renderMediaEmpty(mediaElement);
+    }
+
+    initializePopupMedia(popupElement);
+}
+
 function buildPopupContent(site, config) {
     const hasRealImages = Array.isArray(site.images) && site.images.length > 0;
-    const slidesSource = hasRealImages ? site.images : DEFAULT_POPUP_IMAGES;
-    const slides = slidesSource.filter(Boolean).slice(0, 5);
     const cardClasses = 'popup-card';
     const countryLabel = site.country || 'Unknown';
     const normalizedIsoCode = (value) => {
@@ -1267,24 +1427,28 @@ function buildPopupContent(site, config) {
         `
         : '';
 
+    const mediaTrackMarkup = hasRealImages
+        ? `
+            <div class="popup-media-track is-loading">
+                <div class="popup-media-loader" role="status" aria-label="Loading images"></div>
+            </div>
+        `
+        : `
+            <div class="popup-media-track">
+                <div class="popup-media-slide active">
+                    <div class="popup-media-empty" aria-label="No images available">
+                        <i class="popup-media-icon" data-lucide="image-off"></i>
+                        <span>No image available</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
     return `
         <div class="${cardClasses}" data-site-id="${escapeHtml(site.id)}">
             <div class="popup-media" data-active-index="0" data-has-real-media="${hasRealImages}">
                 ${typeBadgeMarkup}
-                <div class="popup-media-track">
-                    ${slides.map((url, index) => `
-                        <div class="popup-media-slide${index === 0 ? ' active' : ''}">
-                            <img src="${escapeHtml(url)}" alt="${escapeHtml(site.name)} image ${index + 1}" loading="lazy" />
-                        </div>
-                    `).join('')}
-                </div>
-                ${slides.length > 1 ? `
-                    <div class="popup-media-dots" role="tablist" aria-label="${escapeHtml(site.name)} images">
-                        ${slides.map((_, index) => `
-                            <button type="button" class="popup-media-dot${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="Show image ${index + 1}"></button>
-                        `).join('')}
-                    </div>
-                ` : ''}
+                ${mediaTrackMarkup}
             </div>
             <div class="popup-body">
                 <h3 class="popup-heading">${escapeHtml(site.name)}</h3>
@@ -1502,16 +1666,22 @@ function initializePopupMedia(root) {
         const slides = Array.from(container.querySelectorAll('.popup-media-slide'));
         const dots = Array.from(container.querySelectorAll('.popup-media-dot'));
 
-        // Ensure any broken image falls back to the neutral placeholder.
+        // Ensure any broken image falls back to an icon-only empty state.
         slides.forEach(slide => {
             const img = slide.querySelector('img');
-            if (!img || !FALLBACK_POPUP_IMAGE) return;
+            if (!img) return;
             if (img.dataset.fallbackBound === 'true') return;
             img.dataset.fallbackBound = 'true';
             img.addEventListener('error', () => {
                 if (img.dataset.fallbackApplied === 'true') return;
                 img.dataset.fallbackApplied = 'true';
-                img.src = FALLBACK_POPUP_IMAGE;
+                slide.innerHTML = `
+                    <div class="popup-media-empty" aria-label="No images available">
+                        <i class="popup-media-icon" data-lucide="image-off"></i>
+                        <span>No image available</span>
+                    </div>
+                `;
+                refreshLucideIcons(slide);
             });
         });
 
